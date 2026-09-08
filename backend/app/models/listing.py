@@ -97,4 +97,5 @@ class Listing(Base):
 
     __table_args__ = (
         Index("ix_listings_search", "location", "property_type", "price_per_night"),
+        Index("ix_listings_host_active", "host_id", "is_active"),
     )

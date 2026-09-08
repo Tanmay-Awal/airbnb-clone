@@ -184,8 +184,8 @@ def get_listing_detail(db: Session, listing_id: int) -> Optional[ListingDetailOu
         return cached
 
     listing = db.query(Listing).options(
-        joinedload(Listing.images),
-        joinedload(Listing.amenities),
+        selectinload(Listing.images),
+        selectinload(Listing.amenities),
         joinedload(Listing.host),
         selectinload(Listing.reviews)
     ).filter(Listing.id == listing_id, Listing.is_active.is_(True)).first()

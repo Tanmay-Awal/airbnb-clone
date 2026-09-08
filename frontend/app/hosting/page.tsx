@@ -36,7 +36,7 @@ import { EditListingModal } from '@/components/EditListingModal';
 export default function HostDashboardPage() {
   const router = useRouter();
   const { currentUser, logout } = useAuth();
-  const { setShowLocaleModal } = useLocale();
+  const { setShowLocaleModal, formatPrice } = useLocale();
   const { showToast } = useToast();
 
   const [activeNavTab, setActiveNavTab] = useState<'today' | 'calendar' | 'listings' | 'messages'>('listings');
@@ -349,7 +349,7 @@ export default function HostDashboardPage() {
                     </div>
                     <div className="text-right">
                       <div className="font-extrabold text-base text-gray-900 dark:text-white">
-                        ₹{res.total_price?.toLocaleString('en-IN')}
+                        {formatPrice(res.total_price)}
                       </div>
                     </div>
                   </div>

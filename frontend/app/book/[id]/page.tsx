@@ -7,6 +7,7 @@ import { Navbar } from '@/components/Navbar';
 import { Listing, PriceQuote, Booking } from '@/types';
 import { apiGetListingDetail, apiCalculatePriceBreakdown, apiCreateBooking } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useLocale } from '@/context/LocaleContext';
 import { useToast } from '@/components/Toast';
 import { ArrowLeft, Star, ShieldCheck, Lock, CreditCard, Smartphone, Building2, CheckCircle2, ChevronRight, Sparkles, Calendar, Users, X } from 'lucide-react';
 
@@ -15,6 +16,7 @@ export default function ConfirmAndPayPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { currentUser, isLoggedIn, setShowLoginModal } = useAuth();
+  const { formatPrice, currency } = useLocale();
   const { showToast } = useToast();
 
   const listingId = Number(params?.id);
@@ -351,7 +353,7 @@ export default function ConfirmAndPayPage() {
                 ) : (
                   <>
                     <Lock className="w-4 h-4" />
-                    <span>Confirm and Pay · ₹{priceQuote ? priceQuote.total_price.toLocaleString('en-IN') : listing.price_per_night.toLocaleString('en-IN')}</span>
+                    <span>Confirm and Pay · {formatPrice(priceQuote ? priceQuote.total_price : listing.price_per_night)}</span>
                   </>
                 )}
               </button>
@@ -435,30 +437,30 @@ export default function ConfirmAndPayPage() {
                   <>
                     <div className="flex justify-between items-center">
                       <span className="text-airbnb-grey dark:text-gray-400">
-                        {priceQuote.nights} night{priceQuote.nights > 1 ? 's' : ''} × ₹{priceQuote.price_per_night.toLocaleString('en-IN')}
+                        {priceQuote.nights} night{priceQuote.nights > 1 ? 's' : ''} × {formatPrice(priceQuote.price_per_night)}
                       </span>
-                      <span className="font-semibold">₹{priceQuote.base_price.toLocaleString('en-IN')}</span>
+                      <span className="font-semibold">{formatPrice(priceQuote.base_price)}</span>
                     </div>
 
                     <div className="flex justify-between items-center">
                       <span className="text-airbnb-grey dark:text-gray-400">Cleaning fee</span>
-                      <span className="font-semibold">₹{priceQuote.cleaning_fee.toLocaleString('en-IN')}</span>
+                      <span className="font-semibold">{formatPrice(priceQuote.cleaning_fee)}</span>
                     </div>
 
                     <div className="flex justify-between items-center">
                       <span className="text-airbnb-grey dark:text-gray-400">Airbnb service fee</span>
-                      <span className="font-semibold">₹{priceQuote.service_fee.toLocaleString('en-IN')}</span>
+                      <span className="font-semibold">{formatPrice(priceQuote.service_fee)}</span>
                     </div>
 
                     <div className="border-t border-airbnb-border dark:border-gray-800 pt-3 mt-1 flex justify-between items-center text-sm font-extrabold text-airbnb-black dark:text-white">
-                      <span>Total (INR)</span>
-                      <span>₹{priceQuote.total_price.toLocaleString('en-IN')}</span>
+                      <span>Total ({currency.code})</span>
+                      <span>{formatPrice(priceQuote.total_price)}</span>
                     </div>
                   </>
                 ) : (
                   <div className="flex justify-between items-center font-bold text-sm">
-                    <span>Total (INR)</span>
-                    <span>₹{listing.price_per_night.toLocaleString('en-IN')}</span>
+                    <span>Total ({currency.code})</span>
+                    <span>{formatPrice(listing.price_per_night)}</span>
                   </div>
                 )}
               </div>
@@ -530,7 +532,7 @@ export default function ConfirmAndPayPage() {
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-2.5 flex items-center justify-between text-xs">
                   <span className="text-airbnb-grey dark:text-gray-400">Total Paid</span>
                   <span className="font-extrabold text-airbnb-black dark:text-white text-sm">
-                    ₹{confirmedBooking?.total_price.toLocaleString('en-IN') || (priceQuote ? priceQuote.total_price.toLocaleString('en-IN') : listing.price_per_night.toLocaleString('en-IN'))}
+                    {formatPrice(confirmedBooking?.total_price || priceQuote?.total_price || listing.price_per_night)}
                   </span>
                 </div>
               </div>

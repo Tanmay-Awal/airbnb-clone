@@ -830,7 +830,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                               const day = i + 1;
                               const mNum = calendarBaseMonth + 9;
                               const dateStr = `2026-${mNum < 10 ? '0' + mNum : mNum}-${day < 10 ? '0' + day : day}`;
-                              const isPast = calendarBaseMonth === 0 && day < 7;
+                              const todayISTStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+                              const isPast = dateStr < todayISTStr;
                               const isCheckIn = checkIn === dateStr;
                               const isCheckOut = checkOut === dateStr;
                               const isSelected = isCheckIn || isCheckOut;
@@ -890,6 +891,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                               const yearStr = mNum > 12 ? '2027' : '2026';
                               const mForm = mNum > 12 ? mNum - 12 : mNum;
                               const dateStr = `${yearStr}-${mForm < 10 ? '0' + mForm : mForm}-${day < 10 ? '0' + day : day}`;
+                              const todayISTStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+                              const isPast = dateStr < todayISTStr;
                               const isCheckIn = checkIn === dateStr;
                               const isCheckOut = checkOut === dateStr;
                               const isSelected = isCheckIn || isCheckOut;
@@ -897,14 +900,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                               return (
                                 <button
                                   key={day}
+                                  disabled={isPast}
                                   onClick={() => {
+                                    if (isPast) return;
                                     if (!checkIn || (checkIn && checkOut)) { setCheckIn(dateStr); setCheckOut(''); }
                                     else if (dateStr > checkIn) { setCheckOut(dateStr); setActivePopover('who'); }
                                     else { setCheckIn(dateStr); }
                                   }}
-                                  className={`h-9 w-9 mx-auto rounded-full flex items-center justify-center transition-all cursor-pointer ${isSelected ? 'bg-[#222222] dark:bg-white text-white dark:text-black font-bold scale-105 shadow-xs'
-                                    : isInRange ? 'bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-none w-full'
-                                      : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-airbnb-black dark:text-gray-200'
+                                  className={`h-9 w-9 mx-auto rounded-full flex items-center justify-center transition-all ${isPast
+                                    ? 'opacity-25 line-through cursor-not-allowed text-gray-400 dark:text-gray-600'
+                                    : isSelected
+                                      ? 'bg-[#222222] dark:bg-white text-white dark:text-black font-bold scale-105 shadow-xs cursor-pointer'
+                                      : isInRange
+                                        ? 'bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-none w-full cursor-pointer'
+                                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-airbnb-black dark:text-gray-200 cursor-pointer'
                                     }`}
                                 >
                                   {day}

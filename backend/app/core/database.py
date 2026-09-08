@@ -27,6 +27,27 @@ else:
         echo=False
     )
 
+import time
+import logging
+sql_logger = logging.getLogger("db.sql")
+
+import sys
+
+@event.listens_for(engine, "before_cursor_execute")
+def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    context._query_start_time = time.perf_counter()
+
+@event.listens_for(engine, "after_cursor_execute")
+def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+    total_time_ms = round((time.perf_counter() - context._query_start_time) * 1000, 2)
+    # Highlight SQL queries taking longer than 50ms or print execution breakdown
+    clean_stmt = " ".join(statement.split())
+    if total_time_ms > 50:
+        print(f"⚠️ [SLOW SQL {total_time_ms}ms] {clean_stmt[:120]}...", flush=True)
+    else:
+        print(f"🗄️ [SQL {total_time_ms}ms] {clean_stmt[:100]}...", flush=True)
+    sys.stdout.flush()
+
 # Enforce SQLite foreign keys and WAL mode on local connection
 if is_local_sqlite:
     @event.listens_for(engine, "connect")

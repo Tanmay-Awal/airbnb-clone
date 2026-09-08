@@ -4,12 +4,14 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { useAuth } from '@/context/AuthContext';
+import { useLocale } from '@/context/LocaleContext';
 import { Booking } from '@/types';
 import { apiGetMyTrips } from '@/lib/api';
 import { Luggage, Users, MessageSquare, Star, ChevronDown, ChevronUp, MapPin, Calendar, CheckCircle2 } from 'lucide-react';
 
 export default function ProfilePage() {
   const { currentUser } = useAuth();
+  const { formatPrice } = useLocale();
   const [activeTab, setActiveTab] = useState<'about' | 'past_trips' | 'connections'>('about');
   const [showReviewsWritten, setShowReviewsWritten] = useState<boolean>(false);
 
@@ -199,7 +201,7 @@ export default function ProfilePage() {
                           </div>
                           <div className="font-extrabold text-xs text-airbnb-black dark:text-white pt-2 border-t border-gray-100 dark:border-gray-800 mt-2 flex justify-between">
                             <span>Total Paid</span>
-                            <span>₹{trip.total_price?.toLocaleString('en-IN')}</span>
+                            <span>{formatPrice(trip.total_price)}</span>
                           </div>
                         </div>
                       </div>

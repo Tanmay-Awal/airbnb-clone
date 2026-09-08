@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -22,4 +22,5 @@ class Review(Base):
     __table_args__ = (
         UniqueConstraint("booking_id", name="uq_review_booking"),
         CheckConstraint("rating BETWEEN 1 AND 5", name="ck_review_rating"),
+        Index("ix_reviews_listing_rating", "listing_id", "rating"),
     )

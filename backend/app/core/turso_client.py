@@ -76,13 +76,19 @@ class TursoCursor:
         return formatted_args
 
     def execute(self, sql: str, parameters=None):
+        import time
         stmt = {"sql": sql}
         args = self._format_parameters(parameters)
         if args:
             stmt["args"] = args
 
         payload = {"requests": [{"type": "execute", "stmt": stmt}]}
+        t0 = time.perf_counter()
         res = _http_session.post(self.conn.endpoint, json=payload, headers=self.conn.headers, timeout=15)
+        t_dur_ms = round((time.perf_counter() - t0) * 1000, 2)
+        if t_dur_ms > 100:
+            print(f"☁️ [TURSO CLOUD HTTP {t_dur_ms}ms] {sql[:100]}...", flush=True)
+        
         if res.status_code != 200:
             raise Exception(f"Turso HTTP API Error {res.status_code}: {res.text}")
 

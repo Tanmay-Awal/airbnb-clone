@@ -26,15 +26,19 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
+import sys
+
 # Request Timing Logger Middleware
 class TimingLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.perf_counter()
+        print(f"\n🚀 [REQ START] {request.method} {request.url.path}", flush=True)
         response = await call_next(request)
         process_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
         
-        # Log to terminal console
-        print(f"⏱️ [PERF] {request.method} {request.url.path} -> Status {response.status_code} ({process_time_ms} ms)")
+        # Log to terminal console immediately (flushed)
+        print(f"⏱️ [REQ END] {request.method} {request.url.path} -> Status {response.status_code} (Total: {process_time_ms} ms)\n", flush=True)
+        sys.stdout.flush()
         logger.info(f"{request.method} {request.url.path} took {process_time_ms} ms")
         
         response.headers["X-Process-Time"] = f"{process_time_ms}ms"

@@ -13,6 +13,10 @@ import {
   PriceQuote
 } from '@/types';
 
+if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+  console.warn('[API Warning] NEXT_PUBLIC_API_URL environment variable is not defined. Defaulting to http://localhost:8000/api for local development.');
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 class ApiError extends Error {
@@ -316,6 +320,7 @@ export const apiGetHostSettings = (listingId?: number, demoUserId?: number) =>
     max_nights: number;
     cancellation_policy_short: string;
     cancellation_policy_long: string;
+    host_fee_percentage?: number;
   }>(`/host/settings${listingId ? `?listing_id=${listingId}` : ''}`, {}, demoUserId);
 
 export const apiUpdateHostSettings = (data: any, demoUserId?: number) =>
@@ -329,6 +334,7 @@ export const apiUpdateHostSettings = (data: any, demoUserId?: number) =>
     max_nights: number;
     cancellation_policy_short: string;
     cancellation_policy_long: string;
+    host_fee_percentage?: number;
   }>('/host/settings', {
     method: 'PUT',
     body: JSON.stringify(data)

@@ -2,6 +2,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.config import settings
 from app.api.deps import get_current_user, get_current_host
 from app.models.user import User
 from app.schemas.listing import ListingDraftCreate, ListingDetailOut, ListingCardOut, HostSettingsUpdate
@@ -17,17 +18,20 @@ def get_host_settings(
 ):
     """Get pricing, availability, discounts and cancellation settings for a host listing."""
     listings = host_service.get_host_listings(db, current_user.id)
+    host_fee_pct = round(settings.HOST_SERVICE_FEE_PERCENTAGE * 100, 1)
+
     if not listings:
         return {
             "listing_id": None,
-            "price_per_night": 1511,
-            "weekend_price_percent": 10,
-            "weekly_discount_percent": 10,
-            "monthly_discount_percent": 20,
-            "min_nights": 1,
-            "max_nights": 365,
-            "cancellation_policy_short": "Flexible",
-            "cancellation_policy_long": "Firm Long-Term"
+            "price_per_night": settings.DEFAULT_PRICE_PER_NIGHT,
+            "weekend_price_percent": settings.DEFAULT_WEEKEND_PRICE_PERCENT,
+            "weekly_discount_percent": settings.DEFAULT_WEEKLY_DISCOUNT_PERCENT,
+            "monthly_discount_percent": settings.DEFAULT_MONTHLY_DISCOUNT_PERCENT,
+            "min_nights": settings.DEFAULT_MIN_NIGHTS,
+            "max_nights": settings.DEFAULT_MAX_NIGHTS,
+            "cancellation_policy_short": settings.DEFAULT_CANCELLATION_SHORT,
+            "cancellation_policy_long": settings.DEFAULT_CANCELLATION_LONG,
+            "host_fee_percentage": host_fee_pct
         }
     target = None
     if listing_id:
@@ -37,14 +41,15 @@ def get_host_settings(
 
     return {
         "listing_id": target.id,
-        "price_per_night": target.price_per_night or 1511,
-        "weekend_price_percent": target.weekend_price_percent if target.weekend_price_percent is not None else 10,
-        "weekly_discount_percent": target.weekly_discount_percent if target.weekly_discount_percent is not None else 10,
-        "monthly_discount_percent": target.monthly_discount_percent if target.monthly_discount_percent is not None else 20,
-        "min_nights": target.min_nights if target.min_nights is not None else 1,
-        "max_nights": target.max_nights if target.max_nights is not None else 365,
-        "cancellation_policy_short": target.cancellation_policy_short or "Flexible",
-        "cancellation_policy_long": target.cancellation_policy_long or "Firm Long-Term"
+        "price_per_night": target.price_per_night if target.price_per_night is not None else settings.DEFAULT_PRICE_PER_NIGHT,
+        "weekend_price_percent": target.weekend_price_percent if target.weekend_price_percent is not None else settings.DEFAULT_WEEKEND_PRICE_PERCENT,
+        "weekly_discount_percent": target.weekly_discount_percent if target.weekly_discount_percent is not None else settings.DEFAULT_WEEKLY_DISCOUNT_PERCENT,
+        "monthly_discount_percent": target.monthly_discount_percent if target.monthly_discount_percent is not None else settings.DEFAULT_MONTHLY_DISCOUNT_PERCENT,
+        "min_nights": target.min_nights if target.min_nights is not None else settings.DEFAULT_MIN_NIGHTS,
+        "max_nights": target.max_nights if target.max_nights is not None else settings.DEFAULT_MAX_NIGHTS,
+        "cancellation_policy_short": target.cancellation_policy_short or settings.DEFAULT_CANCELLATION_SHORT,
+        "cancellation_policy_long": target.cancellation_policy_long or settings.DEFAULT_CANCELLATION_LONG,
+        "host_fee_percentage": host_fee_pct
     }
 
 @router.put("/settings")
@@ -55,16 +60,19 @@ def update_host_settings(
 ):
     """Update pricing, discounts, availability, or cancellation policies in DB."""
     updated = host_service.update_host_settings(db, current_user.id, data)
+    host_fee_pct = round(settings.HOST_SERVICE_FEE_PERCENTAGE * 100, 1)
+
     return {
         "listing_id": updated.id,
-        "price_per_night": updated.price_per_night or 1511,
-        "weekend_price_percent": updated.weekend_price_percent if updated.weekend_price_percent is not None else 10,
-        "weekly_discount_percent": updated.weekly_discount_percent if updated.weekly_discount_percent is not None else 10,
-        "monthly_discount_percent": updated.monthly_discount_percent if updated.monthly_discount_percent is not None else 20,
-        "min_nights": updated.min_nights if updated.min_nights is not None else 1,
-        "max_nights": updated.max_nights if updated.max_nights is not None else 365,
-        "cancellation_policy_short": updated.cancellation_policy_short or "Flexible",
-        "cancellation_policy_long": updated.cancellation_policy_long or "Firm Long-Term"
+        "price_per_night": updated.price_per_night if updated.price_per_night is not None else settings.DEFAULT_PRICE_PER_NIGHT,
+        "weekend_price_percent": updated.weekend_price_percent if updated.weekend_price_percent is not None else settings.DEFAULT_WEEKEND_PRICE_PERCENT,
+        "weekly_discount_percent": updated.weekly_discount_percent if updated.weekly_discount_percent is not None else settings.DEFAULT_WEEKLY_DISCOUNT_PERCENT,
+        "monthly_discount_percent": updated.monthly_discount_percent if updated.monthly_discount_percent is not None else settings.DEFAULT_MONTHLY_DISCOUNT_PERCENT,
+        "min_nights": updated.min_nights if updated.min_nights is not None else settings.DEFAULT_MIN_NIGHTS,
+        "max_nights": updated.max_nights if updated.max_nights is not None else settings.DEFAULT_MAX_NIGHTS,
+        "cancellation_policy_short": updated.cancellation_policy_short or settings.DEFAULT_CANCELLATION_SHORT,
+        "cancellation_policy_long": updated.cancellation_policy_long or settings.DEFAULT_CANCELLATION_LONG,
+        "host_fee_percentage": host_fee_pct
     }
 
 @router.post("/onboarding/draft", response_model=ListingDetailOut)
@@ -75,7 +83,7 @@ def save_draft(
 ):
     """Save or update an onboarding draft listing."""
     listing = host_service.save_or_update_draft(db, current_user.id, data)
-    return listing_service.get_listing_detail(db, listing.id)
+    return listing_service.get_listing_detail(db, listing.id) or listing
 
 @router.post("/onboarding/publish/{draft_id}", response_model=ListingDetailOut)
 def publish_draft(
@@ -85,7 +93,7 @@ def publish_draft(
 ):
     """Publish a draft listing to the live main feed."""
     listing = host_service.publish_draft(db, current_user.id, draft_id)
-    return listing_service.get_listing_detail(db, listing.id)
+    return listing_service.get_listing_detail(db, listing.id) or listing
 
 @router.get("/dashboard")
 def get_dashboard(

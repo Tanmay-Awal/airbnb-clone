@@ -114,10 +114,15 @@ def save_or_update_draft(db: Session, host_id: int, data: ListingDraftCreate) ->
 
     # Handle images
     if data.images:
+        t_img_start = time.perf_counter()
         db.query(ListingImage).filter(ListingImage.listing_id == listing.id).delete()
-        db.add_all([ListingImage(listing_id=listing.id, url=img_url, position=idx) for idx, img_url in enumerate(data.images)])
+        image_mappings = [{"listing_id": listing.id, "url": img_url, "position": idx} for idx, img_url in enumerate(data.images)]
+        db.bulk_insert_mappings(ListingImage, image_mappings)
+        print(f"⏱️ [PERF DRAFT IMAGES] Bulk inserted {len(image_mappings)} images in {round((time.perf_counter() - t_img_start) * 1000, 2)} ms")
 
+    t_commit_start = time.perf_counter()
     db.commit()
+    print(f"⏱️ [PERF DRAFT COMMIT] DB commit took {round((time.perf_counter() - t_commit_start) * 1000, 2)} ms")
     db.refresh(listing)
     ttl_cache.clear(f"host_listings:{host_id}")
     ttl_cache.clear(f"listing_detail:{listing.id}")
@@ -173,6 +178,8 @@ def update_host_settings(db: Session, host_id: int, data: Any) -> Listing:
 
 def publish_draft(db: Session, host_id: int, draft_id: int) -> Listing:
     """Publish an onboarding draft to live feed."""
+    t_pub_start = time.perf_counter()
+    print(f"🚀 [PUBLISH DRAFT START] host_id={host_id}, draft_id={draft_id}")
     listing = db.query(Listing).filter(Listing.id == draft_id, Listing.host_id == host_id).first()
     if not listing:
         listing = db.query(Listing).filter(Listing.host_id == host_id, Listing.status == "DRAFT").order_by(Listing.id.desc()).first()
@@ -193,7 +200,7 @@ def publish_draft(db: Session, host_id: int, draft_id: int) -> Listing:
     if not listing.price_per_night:
         listing.price_per_night = 1511
 
-    # Attach 5 hardcoded default listing images if none present
+    # Attach default listing images if none present using bulk insert
     if not listing.images:
         DEFAULT_PHOTOS = [
             "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
@@ -202,7 +209,8 @@ def publish_draft(db: Session, host_id: int, draft_id: int) -> Listing:
             "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=1200&q=80",
             "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80"
         ]
-        db.add_all([ListingImage(listing_id=listing.id, url=img_url, position=idx) for idx, img_url in enumerate(DEFAULT_PHOTOS)])
+        image_mappings = [{"listing_id": listing.id, "url": img_url, "position": idx} for idx, img_url in enumerate(DEFAULT_PHOTOS)]
+        db.bulk_insert_mappings(ListingImage, image_mappings)
 
     listing.status = "PUBLISHED"
     listing.is_published = True
@@ -213,10 +221,13 @@ def publish_draft(db: Session, host_id: int, draft_id: int) -> Listing:
     if user:
         user.role = "HOST"
 
+    t_pub_commit = time.perf_counter()
     db.commit()
+    print(f"⏱️ [PERF PUBLISH COMMIT] DB commit took {round((time.perf_counter() - t_pub_commit) * 1000, 2)} ms")
     db.refresh(listing)
     ttl_cache.clear(f"host_listings:{host_id}")
     ttl_cache.clear(f"listing_detail:{listing.id}")
+    print(f"⏱️ [PERF PUBLISH COMPLETE] Total publish time: {round((time.perf_counter() - t_pub_start) * 1000, 2)} ms")
     return listing
 
 from app.core.cache import ttl_cache
@@ -229,11 +240,11 @@ def get_host_listings(db: Session, host_id: int) -> List[Listing]:
         return cached
 
     listings = db.query(Listing).options(
-        joinedload(Listing.images),
-        joinedload(Listing.amenities)
+        selectinload(Listing.images),
+        selectinload(Listing.amenities)
     ).filter(Listing.host_id == host_id, Listing.is_active.is_(True)).order_by(Listing.id.desc()).all()
     
-    ttl_cache.set(cache_key, listings, ttl_seconds=15)
+    ttl_cache.set(cache_key, listings, ttl_seconds=30)
     return listings
 
 def get_host_dashboard(db: Session, host_id: int) -> Dict[str, Any]:

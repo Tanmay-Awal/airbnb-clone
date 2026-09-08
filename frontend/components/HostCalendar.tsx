@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { apiGetHostSettings, apiUpdateHostSettings } from '@/lib/api';
 import { useToast } from '@/components/Toast';
+import { useLocale, CURRENCIES as GLOBAL_CURRENCIES, Currency } from '@/context/LocaleContext';
 
 interface DateConfig {
   day: number;
@@ -37,25 +38,9 @@ type SubViewMode =
   | 'availability_menu'
   | 'cancellations_menu';
 
-interface CurrencyOption {
-  code: string;
-  symbol: string;
-  name: string;
-  rate: number; // multiplier from INR
-}
-
-const CURRENCIES: CurrencyOption[] = [
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee', rate: 1 },
-  { code: 'USD', symbol: '$', name: 'US Dollar', rate: 0.012 },
-  { code: 'EUR', symbol: '€', name: 'Euro', rate: 0.011 },
-  { code: 'GBP', symbol: '£', name: 'British Pound', rate: 0.0095 },
-  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar', rate: 0.018 },
-  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar', rate: 0.016 },
-  { code: 'AED', symbol: 'AED', name: 'UAE Dirham', rate: 0.044 }
-];
-
 export function HostCalendar() {
   const { showToast } = useToast();
+  const { currency, setCurrency, formatPrice } = useLocale();
 
   // Dynamic Date/Time state using Indian Standard Time (Asia/Kolkata)
   const getISTParts = () => {
@@ -70,8 +55,9 @@ export function HostCalendar() {
   const [viewMode, setViewMode] = useState<'Month' | 'Year' | 'Week'>('Month');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
 
-  // Currency Selection State
-  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>(CURRENCIES[0]);
+  // Currency Selection State synced with global LocaleContext
+  const selectedCurrency = currency;
+  const setSelectedCurrency = (c: Currency) => setCurrency(c);
   const [isCurrencyDropdownOpen, setIsCurrencyDropdownOpen] = useState(false);
 
   // Popover toggles
@@ -88,20 +74,21 @@ export function HostCalendar() {
   // Host DB Settings State
   const [settings, setSettings] = useState({
     listing_id: null as number | null,
-    price_per_night: 1511,
-    weekend_price_percent: 10,
-    weekly_discount_percent: 10,
-    monthly_discount_percent: 20,
+    price_per_night: 0,
+    weekend_price_percent: 0,
+    weekly_discount_percent: 0,
+    monthly_discount_percent: 0,
     min_nights: 1,
     max_nights: 365,
     cancellation_policy_short: 'Flexible',
-    cancellation_policy_long: 'Firm Long-Term'
+    cancellation_policy_long: 'Firm Long-Term',
+    host_fee_percentage: 15.0
   });
 
-  const [tempPrice, setTempPrice] = useState(1511);
-  const [tempWeekendPercent, setTempWeekendPercent] = useState(10);
-  const [tempWeeklyDiscount, setTempWeeklyDiscount] = useState(10);
-  const [tempMonthlyDiscount, setTempMonthlyDiscount] = useState(20);
+  const [tempPrice, setTempPrice] = useState(0);
+  const [tempWeekendPercent, setTempWeekendPercent] = useState(0);
+  const [tempWeeklyDiscount, setTempWeeklyDiscount] = useState(0);
+  const [tempMonthlyDiscount, setTempMonthlyDiscount] = useState(0);
   const [tempMinNights, setTempMinNights] = useState(1);
   const [tempMaxNights, setTempMaxNights] = useState(365);
   const [tempCancelShort, setTempCancelShort] = useState('Flexible');
@@ -124,11 +111,14 @@ export function HostCalendar() {
         setIsLoading(true);
         const res = await apiGetHostSettings();
         if (res) {
-          setSettings(res);
-          setTempPrice(res.price_per_night || 1511);
-          setTempWeekendPercent(res.weekend_price_percent ?? 10);
-          setTempWeeklyDiscount(res.weekly_discount_percent ?? 10);
-          setTempMonthlyDiscount(res.monthly_discount_percent ?? 20);
+          setSettings({
+            ...res,
+            host_fee_percentage: res.host_fee_percentage ?? 15.0
+          });
+          setTempPrice(res.price_per_night ?? 0);
+          setTempWeekendPercent(res.weekend_price_percent ?? 0);
+          setTempWeeklyDiscount(res.weekly_discount_percent ?? 0);
+          setTempMonthlyDiscount(res.monthly_discount_percent ?? 0);
           setTempMinNights(res.min_nights ?? 1);
           setTempMaxNights(res.max_nights ?? 365);
           setTempCancelShort(res.cancellation_policy_short || 'Flexible');
@@ -181,7 +171,10 @@ export function HostCalendar() {
     }));
   };
 
+  const isPrevDisabled = currentYear < istNow.year || (currentYear === istNow.year && currentMonthIndex <= istNow.monthIndex);
+
   const handlePrevMonth = () => {
+    if (isPrevDisabled) return;
     if (currentMonthIndex === 0) {
       setCurrentMonthIndex(11);
       setCurrentYear((y) => y - 1);
@@ -220,7 +213,10 @@ export function HostCalendar() {
         listing_id: settings.listing_id,
         ...updatePayload
       });
-      setSettings(updated);
+      setSettings({
+        ...updated,
+        host_fee_percentage: updated.host_fee_percentage ?? settings.host_fee_percentage ?? 15.0
+      });
       showToast('Settings saved to database!', 'success');
     } catch (err: any) {
       showToast(err.message || 'Failed to update settings in database', 'error');
@@ -228,11 +224,12 @@ export function HostCalendar() {
   };
 
   const formatKPrice = (val: number) => {
-    const converted = Math.round(val * selectedCurrency.rate);
+    const rate = currency.rate ?? 1;
+    const converted = Math.round(val * rate);
     if (converted >= 1000) {
-      return `${selectedCurrency.symbol}${(converted / 1000).toFixed(1).replace('.0', '')}K`;
+      return `${currency.symbol}${(converted / 1000).toFixed(1).replace('.0', '')}K`;
     }
-    return `${selectedCurrency.symbol}${converted}`;
+    return `${currency.symbol}${converted}`;
   };
 
   const calculateFriSatPrice = (base: number, percent: number) => {
@@ -311,8 +308,13 @@ export function HostCalendar() {
               <button
                 type="button"
                 onClick={handlePrevMonth}
+                disabled={isPrevDisabled}
                 title="Previous Month"
-                className="w-8 h-8 rounded-full hover:bg-white dark:hover:bg-gray-700 flex items-center justify-center text-gray-800 dark:text-white transition-colors cursor-pointer"
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                  isPrevDisabled
+                    ? 'opacity-30 cursor-not-allowed text-gray-400'
+                    : 'hover:bg-white dark:hover:bg-gray-700 text-gray-800 dark:text-white cursor-pointer'
+                }`}
               >
                 <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
               </button>
@@ -409,28 +411,39 @@ export function HostCalendar() {
                     const isToday = dateInfo.isToday;
                     const isAvailable = dateInfo.isAvailable;
 
+                    const monthStr = (currentMonthIndex + 1).toString().padStart(2, '0');
+                    const dayStr = dayNum.toString().padStart(2, '0');
+                    const dateStr = `${currentYear}-${monthStr}-${dayStr}`;
+                    const todayISTStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+                    const isPast = dateStr < todayISTStr;
+
                     return (
                       <div
                         key={dayNum}
                         onClick={() => {
+                          if (isPast) return;
                           setSelectedDate(dayNum);
                           setEditPriceVal(String(dateInfo.price));
                           setIsEditingPrice(false);
                           setSubView('none');
                         }}
-                        className={`group aspect-[4/3] rounded-2xl p-2 sm:p-3 flex flex-col justify-between transition-all cursor-pointer select-none border relative overflow-hidden ${
-                          isSelected
-                            ? 'bg-[#222222] dark:bg-white text-white dark:text-black border-black dark:border-white ring-2 ring-black dark:ring-white shadow-md z-10'
+                        className={`group aspect-[4/3] rounded-2xl p-2 sm:p-3 flex flex-col justify-between transition-all select-none border relative overflow-hidden ${
+                          isPast
+                            ? 'bg-gray-100/60 dark:bg-[#161616] text-gray-400 dark:text-gray-600 border-gray-200/50 dark:border-gray-800/60 cursor-not-allowed opacity-45 pointer-events-none'
+                            : isSelected
+                            ? 'bg-[#222222] dark:bg-white text-white dark:text-black border-black dark:border-white ring-2 ring-black dark:ring-white shadow-md z-10 cursor-pointer'
                             : !isAvailable
-                            ? 'bg-[#222222] dark:bg-[#121212] text-gray-300 dark:text-gray-500 border-gray-800'
-                            : 'bg-[#F7F7F7] dark:bg-[#262626] hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-gray-200/80 dark:border-gray-700/80 hover:border-gray-400'
+                            ? 'bg-[#222222] dark:bg-[#121212] text-gray-300 dark:text-gray-500 border-gray-800 cursor-pointer'
+                            : 'bg-[#F7F7F7] dark:bg-[#262626] hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-gray-200/80 dark:border-gray-700/80 hover:border-gray-400 cursor-pointer'
                         }`}
                       >
                         {/* Date Number Top Left */}
                         <div className="flex items-center justify-between">
                           <span
                             className={`text-xs sm:text-sm font-bold ${
-                              isToday
+                              isPast
+                                ? 'line-through text-gray-400 dark:text-gray-600 font-normal'
+                                : isToday
                                 ? 'w-6 h-6 rounded-full bg-[#E81948] text-white flex items-center justify-center'
                                 : isSelected
                                 ? 'text-white dark:text-black'
@@ -447,7 +460,9 @@ export function HostCalendar() {
                         <div className="text-left">
                           <span
                             className={`text-[11px] sm:text-xs font-bold tracking-tight ${
-                              isSelected
+                              isPast
+                                ? 'line-through text-gray-400/70 dark:text-gray-600/70 opacity-60'
+                                : isSelected
                                 ? 'text-gray-100 dark:text-gray-900'
                                 : !isAvailable
                                 ? 'text-gray-400 dark:text-gray-600 font-semibold'
@@ -470,29 +485,38 @@ export function HostCalendar() {
                   const isSelected = selectedDate === dayNum;
                   const dayName = MONTH_NAMES[currentMonthIndex].slice(0, 3);
 
+                  const monthStr = (currentMonthIndex + 1).toString().padStart(2, '0');
+                  const dayStr = dayNum.toString().padStart(2, '0');
+                  const dateStr = `${currentYear}-${monthStr}-${dayStr}`;
+                  const todayISTStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+                  const isPast = dateStr < todayISTStr;
+
                   return (
                     <div
                       key={dayNum}
                       onClick={() => {
+                        if (isPast) return;
                         setSelectedDate(dayNum);
                         setEditPriceVal(String(dateInfo.price));
                         setIsEditingPrice(false);
                         setSubView('none');
                       }}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                        isSelected
-                          ? 'bg-[#222222] dark:bg-white text-white dark:text-black border-black dark:border-white ring-2 ring-black dark:ring-white shadow-md'
-                          : 'bg-[#F7F7F7] dark:bg-[#262626] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:border-gray-400'
+                      className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${
+                        isPast
+                          ? 'bg-gray-100/60 dark:bg-[#161616] border-gray-200/50 dark:border-gray-800 text-gray-400 dark:text-gray-600 opacity-45 cursor-not-allowed pointer-events-none'
+                          : isSelected
+                          ? 'bg-[#222222] dark:bg-white text-white dark:text-black border-black dark:border-white ring-2 ring-black dark:ring-white shadow-md cursor-pointer'
+                          : 'bg-[#F7F7F7] dark:bg-[#262626] border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:border-gray-400 cursor-pointer'
                       }`}
                     >
                       <div>
-                        <span className="text-xs font-bold opacity-60">{dayName}</span>
-                        <p className="text-xl font-extrabold mt-1">{dayNum}</p>
+                        <span className={`text-xs font-bold ${isPast ? 'line-through text-gray-400' : 'opacity-60'}`}>{dayName}</span>
+                        <p className={`text-xl font-extrabold mt-1 ${isPast ? 'line-through text-gray-400' : ''}`}>{dayNum}</p>
                       </div>
                       <div>
-                        <span className="text-xs font-extrabold block">₹{dateInfo.price}</span>
-                        <span className={`text-[10px] font-bold ${dateInfo.isAvailable ? 'text-emerald-500' : 'text-rose-500'}`}>
-                          {dateInfo.isAvailable ? 'Available' : 'Blocked'}
+                        <span className={`text-xs font-extrabold block ${isPast ? 'line-through text-gray-400' : ''}`}>{formatPrice(dateInfo.price)}</span>
+                        <span className={`text-[10px] font-bold ${isPast ? 'text-gray-400' : dateInfo.isAvailable ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          {isPast ? 'Past Date' : dateInfo.isAvailable ? 'Available' : 'Blocked'}
                         </span>
                       </div>
                     </div>
@@ -540,29 +564,38 @@ export function HostCalendar() {
                 const isSelected = selectedDate === dayNum;
                 const dayName = new Date(currentYear, currentMonthIndex, dayNum).toLocaleDateString('en-US', { weekday: 'short' });
 
+                const monthStr = (currentMonthIndex + 1).toString().padStart(2, '0');
+                const dayStr = dayNum.toString().padStart(2, '0');
+                const dateStr = `${currentYear}-${monthStr}-${dayStr}`;
+                const todayISTStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+                const isPast = dateStr < todayISTStr;
+
                 return (
                   <div
                     key={dayNum}
                     onClick={() => {
+                      if (isPast) return;
                       setSelectedDate(dayNum);
                       setEditPriceVal(String(dateInfo.price));
                       setIsEditingPrice(false);
                       setSubView('none');
                     }}
-                    className={`p-4 rounded-2xl border flex flex-col justify-between h-40 transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-md'
-                        : 'bg-[#F7F7F7] dark:bg-[#262626] hover:bg-gray-100 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white'
+                    className={`p-4 rounded-2xl border flex flex-col justify-between h-40 transition-all ${
+                      isPast
+                        ? 'bg-gray-100/60 dark:bg-[#161616] border-gray-200/50 dark:border-gray-800 text-gray-400 dark:text-gray-600 opacity-45 cursor-not-allowed pointer-events-none'
+                        : isSelected
+                        ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-md cursor-pointer'
+                        : 'bg-[#F7F7F7] dark:bg-[#262626] hover:bg-gray-100 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white cursor-pointer'
                     }`}
                   >
                     <div>
-                      <span className="text-xs font-bold opacity-60">{dayName}</span>
-                      <p className="text-xl font-extrabold mt-1">{dayNum}</p>
+                      <span className={`text-xs font-bold ${isPast ? 'line-through text-gray-400' : 'opacity-60'}`}>{dayName}</span>
+                      <p className={`text-xl font-extrabold mt-1 ${isPast ? 'line-through text-gray-400' : ''}`}>{dayNum}</p>
                     </div>
                     <div>
-                      <span className="text-xs font-extrabold block">₹{dateInfo.price}</span>
-                      <span className={`text-[10px] font-bold ${dateInfo.isAvailable ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {dateInfo.isAvailable ? 'Available' : 'Blocked'}
+                      <span className={`text-xs font-extrabold block ${isPast ? 'line-through text-gray-400' : ''}`}>{formatPrice(dateInfo.price)}</span>
+                      <span className={`text-[10px] font-bold ${isPast ? 'text-gray-400' : dateInfo.isAvailable ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {isPast ? 'Past Date' : dateInfo.isAvailable ? 'Available' : 'Blocked'}
                       </span>
                     </div>
                   </div>
@@ -592,7 +625,7 @@ export function HostCalendar() {
                   Select Currency
                 </div>
                 <div className="space-y-0.5 max-h-52 overflow-y-auto">
-                  {CURRENCIES.map((curr) => (
+                  {GLOBAL_CURRENCIES.map((curr) => (
                     <button
                       key={curr.code}
                       type="button"
@@ -693,7 +726,7 @@ export function HostCalendar() {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <span className="text-4xl font-extrabold text-white">₹</span>
+                    <span className="text-4xl font-extrabold text-white">{currency.symbol}</span>
                     <input
                       type="number"
                       autoFocus
@@ -707,7 +740,7 @@ export function HostCalendar() {
                   </div>
 
                   <div className="text-xs text-gray-400 font-medium">
-                    You earn ₹{Math.round((Number(editPriceVal) || 1511) * 0.85).toLocaleString('en-IN')}
+                    You earn {formatPrice((Number(editPriceVal) || 0) * (1 - (settings.host_fee_percentage ?? 15) / 100))}
                   </div>
                 </div>
               ) : (
@@ -715,7 +748,7 @@ export function HostCalendar() {
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-3">
                       <span className="text-3xl sm:text-4xl font-extrabold text-white">
-                        ₹{currentDateObj.price.toLocaleString('en-IN')}
+                        {formatPrice(currentDateObj.price)}
                       </span>
                       <button
                         onClick={() => setIsEditingPrice(true)}
@@ -728,7 +761,7 @@ export function HostCalendar() {
                   </div>
 
                   <div className="text-xs text-gray-400 font-medium mt-2">
-                    You earn ₹{Math.round(currentDateObj.price * 0.85).toLocaleString('en-IN')}
+                    You earn {formatPrice(currentDateObj.price * (1 - (settings.host_fee_percentage ?? 15) / 100))}
                   </div>
                 </div>
               )}
@@ -767,7 +800,7 @@ export function HostCalendar() {
                 >
                   <span className="font-bold text-sm text-[#222222] dark:text-white">Per night</span>
                   <span className="font-extrabold text-lg text-[#222222] dark:text-white">
-                    ₹{settings.price_per_night.toLocaleString('en-IN')}
+                    {formatPrice(settings.price_per_night)}
                   </span>
                 </div>
 
@@ -805,7 +838,7 @@ export function HostCalendar() {
                 {/* Giant editable price */}
                 <div className="my-8">
                   <div className="flex items-center justify-center gap-1">
-                    <span className="text-4xl font-extrabold text-[#222222] dark:text-white">₹</span>
+                    <span className="text-4xl font-extrabold text-[#222222] dark:text-white">{currency.symbol}</span>
                     <input
                       type="number"
                       value={tempPrice}
@@ -814,7 +847,7 @@ export function HostCalendar() {
                     />
                   </div>
                   <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mt-3">
-                    You earn ₹{Math.round(tempPrice * 0.85).toLocaleString('en-IN')}{' '}
+                    You earn {formatPrice(tempPrice * (1 - (settings.host_fee_percentage ?? 15) / 100))}{' '}
                     <span className="text-gray-400">∨</span>
                   </p>
                 </div>
@@ -874,7 +907,7 @@ export function HostCalendar() {
                     <Edit2 className="w-5 h-5 text-gray-400 stroke-[2]" />
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-2">
-                    ₹{calculateFriSatPrice(settings.price_per_night, tempWeekendPercent).toLocaleString('en-IN')} for Fri and Sat
+                    {formatPrice(calculateFriSatPrice(settings.price_per_night, tempWeekendPercent))} for Fri and Sat
                   </p>
                 </div>
 
@@ -963,10 +996,7 @@ export function HostCalendar() {
                     </div>
                   </div>
                   <div className="text-right text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                    Weekly average is ₹
-                    {Math.round(
-                      settings.price_per_night * 7 * (1 - tempWeeklyDiscount / 100)
-                    ).toLocaleString('en-IN')}
+                    Weekly average is {formatPrice(settings.price_per_night * 7 * (1 - tempWeeklyDiscount / 100))}
                   </div>
                 </div>
 
@@ -990,10 +1020,7 @@ export function HostCalendar() {
                     </div>
                   </div>
                   <div className="text-right text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                    Monthly average is ₹
-                    {Math.round(
-                      settings.price_per_night * 28 * (1 - tempMonthlyDiscount / 100)
-                    ).toLocaleString('en-IN')}
+                    Monthly average is {formatPrice(settings.price_per_night * 28 * (1 - tempMonthlyDiscount / 100))}
                   </div>
                 </div>
 
@@ -1177,11 +1204,12 @@ export function HostCalendar() {
                   <div>
                     <h4 className="font-bold text-base text-gray-900 dark:text-white">Pricing</h4>
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                      ₹{settings.price_per_night.toLocaleString('en-IN')} – ₹
-                      {calculateFriSatPrice(
-                        settings.price_per_night,
-                        settings.weekend_price_percent
-                      ).toLocaleString('en-IN')}{' '}
+                      {formatPrice(settings.price_per_night)} – {formatPrice(
+                        calculateFriSatPrice(
+                          settings.price_per_night,
+                          settings.weekend_price_percent
+                        )
+                      )}{' '}
                       per night
                     </p>
                   </div>

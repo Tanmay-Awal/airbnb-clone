@@ -1020,7 +1020,7 @@ export default function ListingDetailPage() {
               <div><span className="font-bold">Check-in:</span> {checkIn}</div>
               <div><span className="font-bold">Check-out:</span> {checkOut}</div>
               <div><span className="font-bold">Guests:</span> {guests}</div>
-              {priceQuote && <div><span className="font-bold">Total Paid:</span> ₹{priceQuote.total_price.toLocaleString('en-IN')}</div>}
+              {priceQuote && <div><span className="font-bold">Total Paid:</span> {formatPrice(priceQuote.total_price)}</div>}
             </div>
 
             <div className="flex gap-3">
