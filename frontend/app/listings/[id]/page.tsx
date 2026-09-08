@@ -53,7 +53,7 @@ export default function ListingDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoggedIn, currentUser, setShowLoginModal } = useAuth();
+  const { isLoggedIn, currentUser, setShowLoginModal, setRedirectUrl } = useAuth();
   const { formatPrice } = useLocale();
   const { showToast } = useToast();
 
@@ -303,12 +303,6 @@ export default function ListingDetailPage() {
   };
 
   const handleReserve = async () => {
-    if (!isLoggedIn) {
-      setShowLoginModal(true);
-      showToast('Please log in to complete your reservation', 'info');
-      return;
-    }
-
     if (!checkIn || !checkOut) {
       showToast('Please select valid check-in and check-out dates', 'error');
       return;
@@ -318,8 +312,17 @@ export default function ListingDetailPage() {
       return;
     }
 
+    const checkoutUrl = `/book/${listingId}?checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${guests}`;
+
+    if (!isLoggedIn) {
+      setRedirectUrl(checkoutUrl);
+      setShowLoginModal(true);
+      showToast('Please log in to complete your reservation', 'info');
+      return;
+    }
+
     // Redirect to the Confirm and Pay checkout page matching Airbnb standard flow
-    router.push(`/book/${listingId}?checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${guests}`);
+    router.push(checkoutUrl);
   };
 
   const handleShare = async () => {

@@ -15,7 +15,7 @@ export default function ConfirmAndPayPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { currentUser, isLoggedIn, setShowLoginModal } = useAuth();
+  const { currentUser, isLoggedIn, setShowLoginModal, setRedirectUrl } = useAuth();
   const { formatPrice, currency } = useLocale();
   const { showToast } = useToast();
 
@@ -85,6 +85,8 @@ export default function ConfirmAndPayPage() {
 
   const handleConfirmAndPay = async () => {
     if (!isLoggedIn) {
+      const currentUrl = `/book/${listingId}?checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${guests}`;
+      setRedirectUrl(currentUrl);
       setShowLoginModal(true);
       showToast('Please log in to complete your payment', 'info');
       return;

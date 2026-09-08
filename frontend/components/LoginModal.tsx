@@ -8,7 +8,7 @@ import { useToast } from '@/components/Toast';
 
 export const LoginModal: React.FC = () => {
   const router = useRouter();
-  const { showLoginModal, setShowLoginModal, login, signup } = useAuth();
+  const { showLoginModal, setShowLoginModal, login, signup, redirectUrl, setRedirectUrl } = useAuth();
   const { showToast } = useToast();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   
@@ -50,7 +50,11 @@ export const LoginModal: React.FC = () => {
       if (res.success && res.user) {
         showToast('Logged in successfully!', 'success');
         setShowLoginModal(false);
-        router.push('/');
+        if (redirectUrl) {
+          const target = redirectUrl;
+          setRedirectUrl(null);
+          router.push(target);
+        }
       } else {
         let friendlyErr = res.error || 'Failed to log in.';
         if (friendlyErr.toLowerCase().includes('failed to fetch')) {
@@ -72,7 +76,11 @@ export const LoginModal: React.FC = () => {
       if (res.success && res.user) {
         showToast(`Account created! Welcome, ${res.user.name}!`, 'success');
         setShowLoginModal(false);
-        router.push('/');
+        if (redirectUrl) {
+          const target = redirectUrl;
+          setRedirectUrl(null);
+          router.push(target);
+        }
       } else {
         let friendlyErr = res.error || 'Failed to create account.';
         if (friendlyErr.toLowerCase().includes('failed to fetch')) {

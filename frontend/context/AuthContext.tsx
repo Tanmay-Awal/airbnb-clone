@@ -21,6 +21,8 @@ interface AuthContextType {
   logout: () => void;
   showLoginModal: boolean;
   setShowLoginModal: (v: boolean) => void;
+  redirectUrl: string | null;
+  setRedirectUrl: (url: string | null) => void;
   requireAuth: (callback?: () => void) => boolean;
   refreshUser: () => Promise<MockUser | undefined>;
 }
@@ -35,6 +37,8 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   showLoginModal: false,
   setShowLoginModal: () => {},
+  redirectUrl: null,
+  setRedirectUrl: () => {},
   requireAuth: () => false,
   refreshUser: async () => undefined,
 });
@@ -43,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   const refreshUser = useCallback(async () => {
     const savedUserId = typeof window !== 'undefined' 
@@ -205,6 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       currentUser, isLoggedIn, isLoading, isHost,
       login, signup, logout,
       showLoginModal, setShowLoginModal,
+      redirectUrl, setRedirectUrl,
       requireAuth,
       refreshUser,
     }}>
