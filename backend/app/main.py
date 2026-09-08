@@ -75,6 +75,7 @@ app.include_router(wishlist_router, prefix=settings.API_V1_STR)
 app.include_router(reviews_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
+@app.head("/")
 def root():
     return {
         "message": "Airbnb Fullstack Clone API is running",
@@ -83,7 +84,11 @@ def root():
     }
 
 @app.get("/health")
+@app.head("/health")
+@app.get("/healthz")
+@app.head("/healthz")
 @app.get("/api/health")
+@app.head("/api/health")
 def health_check():
     """Health check with database connectivity verification."""
     from sqlalchemy import text
@@ -94,4 +99,5 @@ def health_check():
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+
 
