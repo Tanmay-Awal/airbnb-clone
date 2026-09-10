@@ -36,6 +36,7 @@ def get_listing_reviews(db: Session, listing_id: int) -> ReviewsListOut:
     )
 
 def create_review(db: Session, user_id: int, listing_id: int, data: ReviewCreate) -> ReviewOut:
+    refresh_completed_bookings(db)
     # 1. Listing exists check
     listing = db.query(Listing).filter(Listing.id == listing_id).first()
     if not listing:

@@ -97,6 +97,7 @@ def create_booking(db: Session, guest_id: int, data: BookingCreate) -> BookingOu
 
 
 def get_guest_bookings(db: Session, guest_id: int) -> List[BookingOut]:
+    refresh_completed_bookings(db)
     bookings = db.query(Booking).options(joinedload(Booking.listing).selectinload(Listing.images)).filter(
         Booking.guest_id == guest_id).order_by(Booking.check_in.desc()).all()
     return [_to_booking_out(booking) for booking in bookings]
