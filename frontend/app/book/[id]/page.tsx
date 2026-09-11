@@ -42,6 +42,27 @@ export default function ConfirmAndPayPage() {
   const [isSuccessModalRendered, setIsSuccessModalRendered] = useState<boolean>(false);
   const [isSuccessModalVisible, setIsSuccessModalVisible] = useState<boolean>(false);
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isPastCheckIn = Boolean(checkIn && checkIn < todayStr);
+  const isInvalidDates = Boolean(checkIn && checkOut && checkIn >= checkOut);
+  const isExceedingCapacity = Boolean(listing && guests > (listing.max_guests || 1));
+  const isInvalidGuestCount = Boolean(guests < 1 || isNaN(guests));
+  const nightsCount = checkIn && checkOut ? Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 3600 * 24)) : 0;
+  const isExcessiveNights = Boolean(nightsCount > 365);
+
+  let validationError: string | null = null;
+  if (isPastCheckIn) {
+    validationError = 'Check-in date cannot be in the past. Please select a future date.';
+  } else if (isInvalidDates) {
+    validationError = 'Check-out date must be after check-in date.';
+  } else if (isExceedingCapacity) {
+    validationError = `This property accommodates a maximum of ${listing?.max_guests} guests (you selected ${guests}).`;
+  } else if (isInvalidGuestCount) {
+    validationError = 'Guest count must be at least 1.';
+  } else if (isExcessiveNights) {
+    validationError = 'Bookings cannot exceed 365 nights.';
+  }
+
   useEffect(() => {
     async function fetchData() {
       if (!listingId || isNaN(listingId)) return;
@@ -50,9 +71,12 @@ export default function ConfirmAndPayPage() {
         const data = await apiGetListingDetail(listingId);
         setListing(data);
 
-        if (checkIn && checkOut) {
+        // Only calculate quote if dates are valid and in the future
+        if (checkIn && checkOut && checkIn < checkOut && checkIn >= todayStr && nightsCount <= 365) {
           const quote = await apiCalculatePriceBreakdown(data.price_per_night, checkIn, checkOut);
           setPriceQuote(quote);
+        } else {
+          setPriceQuote(null);
         }
       } catch (err: any) {
         showToast(err.message || 'Failed to load listing details', 'error');
@@ -94,6 +118,11 @@ export default function ConfirmAndPayPage() {
 
     if (!checkIn || !checkOut) {
       showToast('Missing check-in or check-out dates', 'error');
+      return;
+    }
+
+    if (validationError) {
+      showToast(validationError, 'error');
       return;
     }
 
@@ -169,6 +198,27 @@ export default function ConfirmAndPayPage() {
             Confirm and pay
           </h1>
         </div>
+
+        {/* Validation Warning Banner if URL params are tampered/invalid */}
+        {validationError && (
+          <div className="mb-8 p-4 sm:p-5 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 flex items-start gap-4 shadow-xs">
+            <span className="text-2xl flex-shrink-0">⚠️</span>
+            <div className="flex-1">
+              <h4 className="font-bold text-sm sm:text-base text-amber-900 dark:text-amber-100">
+                Invalid Reservation Details
+              </h4>
+              <p className="text-xs sm:text-sm mt-1 text-amber-800 dark:text-amber-300 leading-relaxed">
+                {validationError}
+              </p>
+            </div>
+            <Link
+              href={`/listings/${listingId}`}
+              className="px-4 py-2 rounded-xl bg-amber-200/70 dark:bg-amber-900/60 hover:bg-amber-300 dark:hover:bg-amber-800 text-xs font-bold text-amber-950 dark:text-amber-100 transition-colors flex-shrink-0"
+            >
+              Choose Valid Dates
+            </Link>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           
@@ -344,14 +394,20 @@ export default function ConfirmAndPayPage() {
 
               <button
                 onClick={handleConfirmAndPay}
-                disabled={isProcessingPayment}
-                className="w-full py-4 bg-gradient-to-r from-[#E81948] to-[#FF385C] hover:from-[#D70466] hover:to-[#E00B41] text-white font-bold text-base rounded-2xl transition-all transform active:scale-[0.99] shadow-lg shadow-airbnb-red/20 flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
+                disabled={isProcessingPayment || Boolean(validationError)}
+                className={`w-full py-4 text-white font-bold text-base rounded-2xl transition-all flex items-center justify-center gap-3 ${
+                  validationError
+                    ? 'bg-gray-400 dark:bg-gray-700 cursor-not-allowed opacity-60'
+                    : 'bg-gradient-to-r from-[#E81948] to-[#FF385C] hover:from-[#D70466] hover:to-[#E00B41] transform active:scale-[0.99] shadow-lg shadow-airbnb-red/20 cursor-pointer'
+                }`}
               >
                 {isProcessingPayment ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     <span>Processing payment...</span>
                   </>
+                ) : validationError ? (
+                  <span>Cannot Book: Invalid Parameters</span>
                 ) : (
                   <>
                     <Lock className="w-4 h-4" />
