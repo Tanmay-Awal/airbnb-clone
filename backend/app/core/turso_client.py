@@ -1,4 +1,4 @@
-"""
+﻿"""
 DBAPI 2.0 driver wrapper over Turso Cloud HTTP / Pipeline REST API.
 Enables SQLAlchemy to query remote Turso database over HTTPS with connection pooling & statement batching.
 """
@@ -87,7 +87,7 @@ class TursoCursor:
         res = _http_session.post(self.conn.endpoint, json=payload, headers=self.conn.headers, timeout=15)
         t_dur_ms = round((time.perf_counter() - t0) * 1000, 2)
         if t_dur_ms > 100:
-            print(f"☁️ [TURSO CLOUD HTTP {t_dur_ms}ms] {sql[:100]}...", flush=True)
+            print(f"[TURSO CLOUD HTTP {t_dur_ms}ms] {sql[:100]}...", flush=True)
         
         if res.status_code != 200:
             raise Exception(f"Turso HTTP API Error {res.status_code}: {res.text}")
@@ -155,4 +155,5 @@ class TursoCursor:
 
     def close(self):
         pass
+
 

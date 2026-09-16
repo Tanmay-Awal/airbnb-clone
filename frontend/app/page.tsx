@@ -12,6 +12,9 @@ import { apiGetListings, apiGetWishlist, apiAddToWishlist, apiRemoveFromWishlist
 import { useAuth } from '@/context/AuthContext';
 import { useLocale } from '@/context/LocaleContext';
 import { Heart, Star, MapPinOff, Sparkles, RefreshCw } from 'lucide-react';
+import { div } from 'framer-motion/client';
+
+
 
 function HomePageContent() {
   const router = useRouter();
@@ -21,7 +24,7 @@ function HomePageContent() {
 
   const [activeTopTab, setActiveTopTab] = useState<'all' | 'homes' | 'experiences' | 'services'>('all');
   const [wishlistIds, setWishlistIds] = useState<number[]>([]);
-  
+
   // Search parameters state
   const [searchParams, setSearchParams] = useState<SearchFilterParams>({});
   const [searchResults, setSearchResults] = useState<ListingCard[] | null>(null);
@@ -138,14 +141,14 @@ function HomePageContent() {
       if (currentUser) {
         try {
           await apiRemoveFromWishlist(itemId, currentUser.id);
-        } catch (_) {}
+        } catch (_) { }
       }
     } else {
       setWishlistIds((prev) => [...prev, itemId]);
       if (currentUser) {
         try {
           await apiAddToWishlist(itemId, currentUser.id);
-        } catch (_) {}
+        } catch (_) { }
       }
     }
   };
@@ -170,6 +173,7 @@ function HomePageContent() {
         guestsFilter={urlGuests || searchParams.guests}
       />
 
+
       {/* Main Content Container */}
       <main className="flex-1 max-w-[1760px] w-full mx-auto px-4 sm:px-8 lg:px-12 py-8">
         {/* IF SEARCH IS ACTIVE */}
@@ -185,8 +189,8 @@ function HomePageContent() {
                   {isLoadingSearch
                     ? 'Searching places in database...'
                     : searchResults !== null
-                    ? `Found ${searchResults.length} ${searchResults.length === 1 ? 'place' : 'places'}`
-                    : 'Searching places...'}
+                      ? `Found ${searchResults.length} ${searchResults.length === 1 ? 'place' : 'places'}`
+                      : 'Searching places...'}
                   {(urlGuests || searchParams.guests) && ` • ${urlGuests || searchParams.guests} guests`}
                 </p>
               </div>
@@ -249,11 +253,10 @@ function HomePageContent() {
                           className="absolute top-3 right-3 p-1.5 rounded-full hover:scale-110 transition-transform cursor-pointer"
                         >
                           <Heart
-                            className={`w-5 h-5 transition-colors ${
-                              isWishlisted
-                                ? 'fill-airbnb-red text-airbnb-red'
-                                : 'text-white fill-black/30 stroke-[2]'
-                            }`}
+                            className={`w-5 h-5 transition-colors ${isWishlisted
+                              ? 'fill-airbnb-red text-airbnb-red'
+                              : 'text-white fill-black/30 stroke-[2]'
+                              }`}
                           />
                         </button>
                         <div className="absolute top-3 left-3 bg-white/95 dark:bg-black/90 text-airbnb-black dark:text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs backdrop-blur-xs">
@@ -341,7 +344,7 @@ function HomePageContent() {
         initialAmenities={searchParams.amenities}
         availableListings={searchResults || undefined}
       />
-    </div>
+    </div >
   );
 }
 

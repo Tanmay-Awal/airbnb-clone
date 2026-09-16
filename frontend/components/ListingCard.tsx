@@ -136,7 +136,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         {/* Card Info Section (Matching Screenshot) */}
         <div className="flex flex-col gap-0.5 pt-0.5">
           <div className="font-bold text-[15px] text-[#222222] dark:text-gray-100 truncate">
-            {listing.title.startsWith('Home in') || listing.title.startsWith('Villa in') ? listing.title : `Home in ${listing.location.split(',')[0]}`}
+            {listing.title || (listing.location ? `Home in ${listing.location.split(',')[0]}` : 'Featured Home')}
           </div>
           
           <div className="flex items-center gap-1 text-[14px] text-[#717171] dark:text-gray-400">

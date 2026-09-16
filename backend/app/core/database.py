@@ -15,11 +15,29 @@ if db_url.startswith("sqlite+libsql://"):
     params = parse_qs(parsed.query)
     auth_token = params.get("auth_token", [""])[0]
     
-    engine = create_engine(
-        "sqlite://",
-        creator=lambda: turso_client.connect(db_url, auth_token),
-        echo=False
-    )
+    try:
+        # Test connection to Turso Cloud
+        test_conn = turso_client.connect(db_url, auth_token)
+        cursor = test_conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.close()
+        test_conn.close()
+        print("[TURSO CLOUD DB] Connected successfully to Turso Cloud database", flush=True)
+
+        engine = create_engine(
+            "sqlite://",
+            creator=lambda: turso_client.connect(db_url, auth_token),
+            echo=False
+        )
+    except Exception as err:
+        print(f"[TURSO CLOUD DB UNREACHABLE] {err}. Falling back to local SQLite database 'sqlite:///./airbnb.db'", flush=True)
+        db_url = "sqlite:///./airbnb.db"
+        is_local_sqlite = True
+        engine = create_engine(
+            db_url,
+            connect_args={"check_same_thread": False},
+            echo=False
+        )
 else:
     engine = create_engine(
         db_url,
@@ -43,9 +61,9 @@ def after_cursor_execute(conn, cursor, statement, parameters, context, executema
     # Highlight SQL queries taking longer than 50ms or print execution breakdown
     clean_stmt = " ".join(statement.split())
     if total_time_ms > 50:
-        print(f"⚠️ [SLOW SQL {total_time_ms}ms] {clean_stmt[:120]}...", flush=True)
+        print(f"[SLOW SQL {total_time_ms}ms] {clean_stmt[:120]}...", flush=True)
     else:
-        print(f"🗄️ [SQL {total_time_ms}ms] {clean_stmt[:100]}...", flush=True)
+        print(f"[SQL {total_time_ms}ms] {clean_stmt[:100]}...", flush=True)
     sys.stdout.flush()
 
 # Enforce SQLite foreign keys and WAL mode on local connection
@@ -71,3 +89,4 @@ def get_db():
         yield db
     finally:
         db.close()
+

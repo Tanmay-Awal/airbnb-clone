@@ -1,3 +1,4 @@
+import time
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import func
@@ -79,10 +80,14 @@ def save_or_update_draft(db: Session, host_id: int, data: ListingDraftCreate) ->
         listing.bathrooms = data.bathrooms
 
     # Title & description & pricing
-    if data.title:
-        listing.title = data.title
-    if data.description:
-        listing.description = data.description
+    if data.title and data.title.strip():
+        listing.title = data.title.strip()
+    elif not listing.title or listing.title == "Untitled Listing":
+        loc_name = listing.city or (listing.location.split(',')[0] if listing.location else 'Greater Noida')
+        listing.title = f"Lovely {listing.property_type or 'Home'} in {loc_name}"
+
+    if data.description and data.description.strip():
+        listing.description = data.description.strip()
     if data.highlights:
         listing.highlights = data.highlights
     if data.price_per_night is not None:
@@ -113,19 +118,32 @@ def save_or_update_draft(db: Session, host_id: int, data: ListingDraftCreate) ->
         listing.is_business_host = data.is_business_host
 
     # Handle images
-    if data.images:
+    if data.images and len(data.images) > 0:
         t_img_start = time.perf_counter()
         db.query(ListingImage).filter(ListingImage.listing_id == listing.id).delete()
         image_mappings = [{"listing_id": listing.id, "url": img_url, "position": idx} for idx, img_url in enumerate(data.images)]
         db.bulk_insert_mappings(ListingImage, image_mappings)
-        print(f"⏱️ [PERF DRAFT IMAGES] Bulk inserted {len(image_mappings)} images in {round((time.perf_counter() - t_img_start) * 1000, 2)} ms")
+        print(f"[PERF DRAFT IMAGES] Bulk inserted {len(image_mappings)} images in {round((time.perf_counter() - t_img_start) * 1000, 2)} ms")
+    elif not listing.images:
+        DEFAULT_PHOTOS = [
+            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80"
+        ]
+        image_mappings = [{"listing_id": listing.id, "url": img_url, "position": idx} for idx, img_url in enumerate(DEFAULT_PHOTOS)]
+        db.bulk_insert_mappings(ListingImage, image_mappings)
 
     t_commit_start = time.perf_counter()
     db.commit()
-    print(f"⏱️ [PERF DRAFT COMMIT] DB commit took {round((time.perf_counter() - t_commit_start) * 1000, 2)} ms")
+    print(f"[PERF DRAFT COMMIT] DB commit took {round((time.perf_counter() - t_commit_start) * 1000, 2)} ms", flush=True)
     db.refresh(listing)
     ttl_cache.clear(f"host_listings:{host_id}")
     ttl_cache.clear(f"listing_detail:{listing.id}")
+
+    img_count = db.query(ListingImage).filter(ListingImage.listing_id == listing.id).count()
+    print(f"[DB HOST DRAFT SAVED] listing_id={listing.id} | host_id={host_id} | title='{listing.title}' | status='{listing.status}' | is_published={listing.is_published} | images={img_count}", flush=True)
     return listing
 
 def update_host_settings(db: Session, host_id: int, data: Any) -> Listing:
@@ -179,13 +197,14 @@ def update_host_settings(db: Session, host_id: int, data: Any) -> Listing:
 def publish_draft(db: Session, host_id: int, draft_id: int) -> Listing:
     """Publish an onboarding draft to live feed."""
     t_pub_start = time.perf_counter()
-    print(f"🚀 [PUBLISH DRAFT START] host_id={host_id}, draft_id={draft_id}")
+    print(f"[PUBLISH DRAFT START] host_id={host_id}, draft_id={draft_id}", flush=True)
     listing = db.query(Listing).filter(Listing.id == draft_id, Listing.host_id == host_id).first()
     if not listing:
         listing = db.query(Listing).filter(Listing.host_id == host_id, Listing.status == "DRAFT").order_by(Listing.id.desc()).first()
     if not listing:
         listing = db.query(Listing).filter(Listing.host_id == host_id).order_by(Listing.id.desc()).first()
     if not listing:
+        print(f"[PUBLISH DRAFT ERROR] No draft listing found for host_id={host_id}, draft_id={draft_id}", flush=True)
         raise HTTPException(status_code=404, detail="Draft listing not found")
 
     # Fallbacks for required live fields
@@ -223,11 +242,11 @@ def publish_draft(db: Session, host_id: int, draft_id: int) -> Listing:
 
     t_pub_commit = time.perf_counter()
     db.commit()
-    print(f"⏱️ [PERF PUBLISH COMMIT] DB commit took {round((time.perf_counter() - t_pub_commit) * 1000, 2)} ms")
+    print(f"[PERF PUBLISH COMMIT] DB commit took {round((time.perf_counter() - t_pub_commit) * 1000, 2)} ms", flush=True)
     db.refresh(listing)
     ttl_cache.clear(f"host_listings:{host_id}")
     ttl_cache.clear(f"listing_detail:{listing.id}")
-    print(f"⏱️ [PERF PUBLISH COMPLETE] Total publish time: {round((time.perf_counter() - t_pub_start) * 1000, 2)} ms")
+    print(f"[DB HOST LISTING PUBLISHED SUCCESS] listing_id={listing.id} | host_id={host_id} | status='{listing.status}' | is_published={listing.is_published} | title='{listing.title}'", flush=True)
     return listing
 
 from app.core.cache import ttl_cache

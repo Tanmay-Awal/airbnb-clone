@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, Globe, Menu, User as UserIcon, Heart, Compass, Luggage, Building2, ChevronDown, Check, Sun, Moon, LogOut, HelpCircle, Bell, Settings, MessageSquare, Navigation, MapPin, Loader2 } from 'lucide-react';
+import { Search, Globe, Menu, User as UserIcon, Heart, Compass, Luggage, Building2, ChevronDown, Check, Sun, Moon, LogOut, HelpCircle, Bell, Settings, MessageSquare, Navigation, MapPin, Loader2, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useLocale } from '@/context/LocaleContext';
@@ -142,13 +142,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
           );
           const data = await res.json();
-          
           if (data && data.address) {
             const addr = data.address;
             const city = addr.city || addr.town || addr.municipality || addr.suburb || addr.city_district || addr.county || 'Noida';
             const state = addr.state || 'Uttar Pradesh';
             const formattedLoc = `${city}, ${state}`;
-            
             setSelectedLocation(formattedLoc);
             showToast(`Location set to ${formattedLoc}`, 'success');
             setActivePopover('when');

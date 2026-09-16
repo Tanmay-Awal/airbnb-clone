@@ -1,4 +1,4 @@
-import time
+﻿import time
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,12 +32,12 @@ import sys
 class TimingLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.perf_counter()
-        print(f"\n🚀 [REQ START] {request.method} {request.url.path}", flush=True)
+        print(f"\n[REQ START] {request.method} {request.url.path}", flush=True)
         response = await call_next(request)
         process_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
         
         # Log to terminal console immediately (flushed)
-        print(f"⏱️ [REQ END] {request.method} {request.url.path} -> Status {response.status_code} (Total: {process_time_ms} ms)\n", flush=True)
+        print(f"[REQ END] {request.method} {request.url.path} -> Status {response.status_code} (Total: {process_time_ms} ms)\n", flush=True)
         sys.stdout.flush()
         logger.info(f"{request.method} {request.url.path} took {process_time_ms} ms")
         
@@ -103,5 +103,6 @@ def health_check():
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+
 
 

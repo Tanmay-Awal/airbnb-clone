@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -31,7 +32,8 @@ import {
   Waves,
   BedDouble,
   Award,
-  ChevronDown
+  ChevronDown,
+  Loader2
 } from 'lucide-react';
 import { ListingDetail, PriceBreakdown, Review } from '@/types';
 import {
@@ -78,6 +80,8 @@ export default function ListingDetailPage() {
   const [isGuestsOpen, setIsGuestsOpen] = useState<boolean>(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState<boolean>(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState<boolean>(false);
+  const [isNavigatingToTrips, setIsNavigatingToTrips] = useState<boolean>(false);
+  const [isNavigatingToExplore, setIsNavigatingToExplore] = useState<boolean>(false);
 
   // Calendar Modal Animation state
   const [isCalendarRendered, setIsCalendarRendered] = useState<boolean>(false);
@@ -905,7 +909,14 @@ export default function ListingDetailPage() {
                 disabled={Boolean(!checkIn || !checkOut || !guests || isReserving || isCheckingAvailability || !priceQuote)}
                 className="w-full h-12 bg-gradient-to-r from-[#E61E4D] via-[#E31C5F] to-[#D70466] text-white font-bold text-base rounded-xl hover:opacity-95 transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)] active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none shadow-md hover:shadow-lg disabled:shadow-none"
               >
-                {isReserving ? 'Reserving...' : 'Reserve'}
+                {isReserving ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Reserving...</span>
+                  </>
+                ) : (
+                  'Reserve'
+                )}
               </button>
 
               <div className="text-center text-xs text-airbnb-grey dark:text-gray-400">You won't be charged yet</div>
@@ -1028,10 +1039,38 @@ export default function ListingDetailPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => router.push('/trips')}
-                className="flex-1 py-3 bg-airbnb-black text-white font-bold text-sm rounded-xl hover:bg-black transition-colors"
+                onClick={() => {
+                  setIsNavigatingToTrips(true);
+                  router.push('/trips');
+                }}
+                disabled={isNavigatingToTrips || isNavigatingToExplore}
+                className="flex-1 py-3 bg-airbnb-black text-white font-bold text-sm rounded-xl hover:bg-black transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                Go to My Trips
+                {isNavigatingToTrips ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Going to Trips...</span>
+                  </>
+                ) : (
+                  'Go to My Trips'
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setIsNavigatingToExplore(true);
+                  router.push('/');
+                }}
+                disabled={isNavigatingToTrips || isNavigatingToExplore}
+                className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-airbnb-black dark:text-white font-bold text-sm rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isNavigatingToExplore ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Exploring...</span>
+                  </>
+                ) : (
+                  'Explore More'
+                )}
               </button>
             </div>
           </div>

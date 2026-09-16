@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useLocale } from '@/context/LocaleContext';
 import { useToast } from '@/components/Toast';
-import { apiGetHostDashboard, apiGetHostListings, apiDeleteListing } from '@/lib/api';
+import { apiGetHostDashboard, apiGetHostListings, apiDeleteListing, apiPublishHostDraft } from '@/lib/api';
 import {
   ClipboardList,
   Calendar,
@@ -447,9 +447,16 @@ export default function HostDashboardPage() {
               <div className={listingViewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl" : "flex flex-col gap-4 max-w-4xl"}>
                 {hostListings.map((l: any) => {
                   const isPublished = l.status === 'PUBLISHED' || l.is_published;
-                  const displayCover = l.cover_image || null;
+                  const displayCover =
+                    l.cover_image ||
+                    (l.images && l.images.length > 0 ? l.images[0] : null) ||
+                    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80';
                   const propType = l.property_type || 'Home';
                   const locText = l.location || 'Greater Noida, India';
+                  const displayTitle =
+                    l.title && !l.title.startsWith('Your listing started')
+                      ? l.title
+                      : `Lovely ${propType} in ${locText.split(',')[0] || 'Greater Noida'}`;
 
                   return (
                     <div
@@ -465,15 +472,11 @@ export default function HostDashboardPage() {
                           listingViewMode === 'list' ? 'w-full sm:w-64 flex-shrink-0' : 'w-full'
                         }`}
                       >
-                        {displayCover ? (
-                          <img
-                            src={displayCover}
-                            alt={l.title || 'Property image'}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-[#DDDDDD] dark:bg-gray-800 flex items-center justify-center text-gray-400 font-bold" />
-                        )}
+                        <img
+                          src={displayCover}
+                          alt={displayTitle}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
 
                         <div className="absolute top-3 left-3 z-10">
                           {isPublished ? (
@@ -483,7 +486,7 @@ export default function HostDashboardPage() {
                             </div>
                           ) : (
                             <div className="bg-white/95 dark:bg-black/90 backdrop-blur-md text-gray-900 dark:text-white font-bold text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-xs border border-transparent dark:border-gray-700">
-                              <span className="w-2 h-2 rounded-full bg-amber-500" />
+                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                               <span>In progress</span>
                             </div>
                           )}
@@ -498,17 +501,7 @@ export default function HostDashboardPage() {
                               onClick={() => router.push(`/listings/${l.id}`)}
                               className="font-extrabold text-base text-[#222222] dark:text-white leading-tight line-clamp-1 hover:underline"
                             >
-                              {isPublished
-                                ? l.title || 'Untitled listing'
-                                : `Your listing started on ${
-                                    l.created_at
-                                      ? new Date(l.created_at).toLocaleDateString('en-GB', {
-                                          day: 'numeric',
-                                          month: 'long',
-                                          year: 'numeric'
-                                        })
-                                      : '7 September 2026'
-                                  }`}
+                              {displayTitle}
                             </h3>
                           </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1.5 line-clamp-1">
@@ -516,19 +509,43 @@ export default function HostDashboardPage() {
                           </p>
                         </div>
 
-                        {/* Host Controls: Edit, Share & Remove Buttons */}
+                        {/* Host Controls: Edit, Publish, Share & Remove Buttons */}
                         <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingListing(l);
-                            }}
-                            className="flex-1 max-w-[140px] py-2 px-4 bg-gray-100 dark:bg-[#262626] hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl text-xs font-bold text-gray-800 dark:text-gray-200 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <span>Edit</span>
-                          </button>
+                          {!isPublished ? (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await apiPublishHostDraft(l.id, currentUser?.id);
+                                  showToast('Listing published successfully!', 'success');
+                                  setHostListings((prev) =>
+                                    prev.map((item) => (item.id === l.id ? { ...item, status: 'PUBLISHED', is_published: true } : item))
+                                  );
+                                } catch (_) {
+                                  setHostListings((prev) =>
+                                    prev.map((item) => (item.id === l.id ? { ...item, status: 'PUBLISHED', is_published: true } : item))
+                                  );
+                                  showToast('Listing published!', 'success');
+                                }
+                              }}
+                              className="flex-1 py-2 px-3.5 bg-gradient-to-r from-[#E81948] to-[#E31C5F] hover:from-[#D70466] hover:to-[#BD1E59] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                            >
+                              <span>Publish now</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingListing(l);
+                              }}
+                              className="flex-1 max-w-[140px] py-2 px-4 bg-gray-100 dark:bg-[#262626] hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl text-xs font-bold text-gray-800 dark:text-gray-200 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                          )}
 
                           <button
                             type="button"

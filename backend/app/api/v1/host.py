@@ -116,13 +116,19 @@ def get_host_listings(
     for l in listings:
         avg_rating, review_count = rating_stats.get(l.id, (0.0, 0))
         cover_img = l.images[0].url if l.images else None
+        if not cover_img:
+            cover_img = "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80"
+        
+        display_title = l.title if (l.title and not l.title.startswith("Your listing started")) else f"Lovely {l.property_type or 'Home'} in {l.location or 'Noida'}"
+        all_imgs = [img.url for img in l.images] if l.images else [cover_img]
+
         result.append(
             ListingCardOut(
                 id=l.id,
-                title=l.title or "Untitled listing",
-                location=l.location or "Draft location",
+                title=display_title,
+                location=l.location or "Noida, Uttar Pradesh",
                 property_type=l.property_type or "Home",
-                price_per_night=l.price_per_night or 0,
+                price_per_night=l.price_per_night or 1511,
                 max_guests=l.max_guests or 1,
                 bedrooms=l.bedrooms or 1,
                 beds=l.beds or 1,
@@ -130,7 +136,7 @@ def get_host_listings(
                 status=l.status or "DRAFT",
                 is_published=l.is_published,
                 cover_image=cover_img,
-                images=[img.url for img in l.images],
+                images=all_imgs,
                 rating=avg_rating,
                 review_count=review_count,
                 host_name=current_user.name,

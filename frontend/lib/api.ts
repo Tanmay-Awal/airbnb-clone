@@ -40,6 +40,8 @@ export async function fetchApi<T>(
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
     // Prefer JWT Bearer token; fallback to demo headers for backward compatibility
     ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
     ...(activeUserId ? { 'X-User-Id': activeUserId, 'X-Demo-User-Id': activeUserId } : {}),
@@ -47,6 +49,7 @@ export async function fetchApi<T>(
   };
 
   const config: RequestInit = {
+    cache: 'no-store',
     ...options,
     headers,
   };
@@ -284,20 +287,32 @@ export const apiGetHostMetrics = (demoUserId?: number) =>
 
 export const apiSaveHostDraft = async (data: any, demoUserId?: number) => {
   try {
-    return await fetchApi<ListingDetail>('/host/onboarding/draft', {
+    console.log('📝 [API SAVE HOST DRAFT] Sending data ->', { draft_id: data.id, title: data.title, images_count: data.images?.length });
+    const res = await fetchApi<ListingDetail>('/host/onboarding/draft', {
       method: 'POST',
       body: JSON.stringify(data)
     }, demoUserId);
-  } catch (err) {
-    console.warn('Backend draft save fallback active:', err);
-    return { id: 1, ...data } as any;
+    console.log('✅ [API SAVE HOST DRAFT SUCCESS] Saved listing ->', { id: res.id, title: res.title, status: (res as any).status });
+    return res;
+  } catch (err: any) {
+    console.error('❌ [API SAVE HOST DRAFT ERROR]', err);
+    throw err;
   }
 };
 
-export const apiPublishHostDraft = (draftId: number, demoUserId?: number) =>
-  fetchApi<ListingDetail>(`/host/onboarding/publish/${draftId}`, {
-    method: 'POST'
-  }, demoUserId);
+export const apiPublishHostDraft = async (draftId: number, demoUserId?: number) => {
+  try {
+    console.log(`🚀 [API PUBLISH HOST DRAFT] Publishing draftId=${draftId}...`);
+    const res = await fetchApi<ListingDetail>(`/host/onboarding/publish/${draftId}`, {
+      method: 'POST'
+    }, demoUserId);
+    console.log(`🎉 [API PUBLISH HOST DRAFT SUCCESS] Published listing ->`, { id: res.id, title: res.title, status: (res as any).status || 'PUBLISHED' });
+    return res;
+  } catch (err: any) {
+    console.error(`❌ [API PUBLISH HOST DRAFT ERROR] draftId=${draftId}`, err);
+    throw err;
+  }
+};
 
 export const apiGetHostDashboard = (demoUserId?: number) =>
   fetchApi<{
@@ -340,47 +355,100 @@ export const apiUpdateHostSettings = (data: any, demoUserId?: number) =>
     body: JSON.stringify(data)
   }, demoUserId);
 
-// Wishlist API
-export const apiGetWishlist = async (demoUserId?: number): Promise<Wishlist[]> => {
+// Wishlist Local Storage Persistence Helpers
+function getLocalWishlists(): Wishlist[] {
+  if (typeof window === 'undefined') return [];
   try {
-    return await fetchApi<Wishlist[]>('/wishlist', {}, demoUserId);
+    const raw = localStorage.getItem('user_wishlists');
+    return raw ? JSON.parse(raw) : [];
   } catch (_) {
     return [];
   }
+}
+
+function saveLocalWishlists(list: Wishlist[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('user_wishlists', JSON.stringify(list));
+  } catch (_) {}
+}
+
+export const apiGetWishlist = async (demoUserId?: number): Promise<Wishlist[]> => {
+  let backendItems: Wishlist[] = [];
+  try {
+    backendItems = await fetchApi<Wishlist[]>('/wishlist', {}, demoUserId);
+  } catch (_) {
+    backendItems = [];
+  }
+
+  const localItems = getLocalWishlists();
+  
+  // Combine items, avoiding duplicates by listing_id
+  const map = new Map<number, Wishlist>();
+  for (const item of backendItems) {
+    if (item && item.listing) {
+      map.set(item.listing_id, item);
+    }
+  }
+  for (const item of localItems) {
+    if (item && item.listing && !map.has(item.listing_id)) {
+      map.set(item.listing_id, item);
+    }
+  }
+
+  return Array.from(map.values());
 };
 
 export const apiAddToWishlist = async (listingId: number, demoUserId?: number): Promise<Wishlist> => {
+  let item: Wishlist | null = null;
   try {
-    return await fetchApi<Wishlist>(`/wishlist/${listingId}`, { method: 'POST' }, demoUserId);
-  } catch (_) {
-    return {
-      id: 1,
-      user_id: 1,
+    item = await fetchApi<Wishlist>(`/wishlist/${listingId}`, { method: 'POST' }, demoUserId);
+  } catch (_) {}
+
+  if (!item || !item.listing || !item.listing.title) {
+    const mockItem = getCategoryItemById(Number(listingId));
+    const priceVal = mockItem ? (parseInt(mockItem.priceText.replace(/[^0-9]/g, '')) || 5000) : 5000;
+    
+    item = {
+      id: Math.floor(Math.random() * 90000) + 10000,
+      user_id: demoUserId || 1,
       listing_id: listingId,
       created_at: new Date().toISOString(),
       listing: {
         id: listingId,
-        title: 'Listing Villa',
-        location: 'Noida, Uttar Pradesh',
-        property_type: 'Entire Villa',
-        price_per_night: 5000,
+        title: mockItem ? mockItem.title : 'Flat in Dehradun',
+        location: mockItem ? mockItem.location : 'Dehradun, Uttarakhand',
+        property_type: mockItem?.category === 'homes' ? 'Entire Home' : 'Villa',
+        price_per_night: priceVal,
         max_guests: 4,
         bedrooms: 2,
         beds: 2,
         bathrooms: 2,
-        images: ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'],
-        rating: 5.0,
-        review_count: 12,
+        cover_image: mockItem?.imageUrl || 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+        images: mockItem?.imageUrl ? [mockItem.imageUrl] : ['https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80'],
+        rating: mockItem?.rating || 5.0,
+        review_count: 18,
         host_name: 'Tanmay'
       }
     };
   }
+
+  // Save to local storage
+  const localList = getLocalWishlists();
+  if (!localList.some((w) => w.listing_id === listingId)) {
+    saveLocalWishlists([item, ...localList]);
+  }
+
+  return item;
 };
 
 export const apiRemoveFromWishlist = async (listingId: number, demoUserId?: number): Promise<void> => {
   try {
     await fetchApi<void>(`/wishlist/${listingId}`, { method: 'DELETE' }, demoUserId);
   } catch (_) {}
+
+  const localList = getLocalWishlists();
+  saveLocalWishlists(localList.filter((w) => w.listing_id !== listingId));
 };
 
 // Reviews API

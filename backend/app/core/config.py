@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     DEMO_MODE: bool = True  # Set False in production to disable demo login endpoints
     
     # Business Logic Constants (Fees)
-    CLEANING_FEE_FIXED: int = 1500  # ₹1,500 fixed cleaning fee
+    CLEANING_FEE_FIXED: int = 1500  # ?1,500 fixed cleaning fee
     SERVICE_FEE_PERCENTAGE: float = 0.10  # 10% platform service fee for guests
     HOST_SERVICE_FEE_PERCENTAGE: float = 0.15  # 15% platform service fee for hosts
     
@@ -45,6 +45,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = "ignore"
 
 settings = Settings()
 
@@ -55,5 +56,7 @@ if not settings.DEMO_MODE and settings.SECRET_KEY == "CHANGE-ME-IN-PRODUCTION-US
 # Ensure FRONTEND_URL is included in CORS origins if not already present
 if settings.FRONTEND_URL and settings.FRONTEND_URL not in settings.BACKEND_CORS_ORIGINS:
     settings.BACKEND_CORS_ORIGINS.append(settings.FRONTEND_URL)
+
+
 
 
