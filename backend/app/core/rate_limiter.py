@@ -39,6 +39,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             del self.requests[key]
 
     async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if path in ["/health", "/healthz", "/api/health", "/"]:
+            return await call_next(request)
+
         # Extract client IP
         client_ip = request.client.host if request.client else "127.0.0.1"
         now = time.time()

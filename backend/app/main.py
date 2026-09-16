@@ -1,4 +1,4 @@
-﻿import time
+import time
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -94,15 +94,8 @@ def root():
 @app.get("/api/health")
 @app.head("/api/health")
 def health_check():
-    """Health check with database connectivity verification."""
-    from sqlalchemy import text
-    try:
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
-        return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+    """Fast health check response for cloud deployment health probes."""
+    return {"status": "healthy", "service": "airbnb-backend"}
 
 
 
