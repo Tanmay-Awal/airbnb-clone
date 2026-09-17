@@ -437,10 +437,21 @@ export default function HostDashboardPage() {
                   Start onboarding to list your home or apartment for guests worldwide.
                 </p>
                 <button
-                  onClick={() => router.push('/become-a-host/address')}
-                  className="px-6 py-3 bg-airbnb-black dark:bg-white text-white dark:text-black font-bold text-xs rounded-xl hover:bg-black dark:hover:bg-gray-200 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setIsNavigatingToCreate(true);
+                    router.push('/become-a-host/address');
+                  }}
+                  disabled={isNavigatingToCreate}
+                  className="px-6 py-3 bg-airbnb-black dark:bg-white text-white dark:text-black font-bold text-xs rounded-xl hover:bg-black dark:hover:bg-gray-200 transition-colors cursor-pointer flex items-center justify-center gap-2 mx-auto disabled:opacity-70"
                 >
-                  Start hosting
+                  {isNavigatingToCreate ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-airbnb-red" />
+                      <span>Starting...</span>
+                    </>
+                  ) : (
+                    <span>Start hosting</span>
+                  )}
                 </button>
               </div>
             ) : (

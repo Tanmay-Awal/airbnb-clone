@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Navigation, X, ArrowLeft, Home } from 'lucide-react';
+import { Search, Navigation, X, ArrowLeft, Home, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { apiSaveHostDraft } from '@/lib/api';
@@ -38,6 +38,13 @@ export default function BecomeAHostAddressPage() {
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
 
+  // Helper to verify string is text and not a numeric postcode
+  const isValidText = (val?: string) => {
+    if (!val) return false;
+    const trimmed = val.trim();
+    return trimmed.length > 0 && !/^\d+$/.test(trimmed);
+  };
+
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       showToast('Geolocation is not supported by your browser', 'error');
@@ -59,17 +66,19 @@ export default function BecomeAHostAddressPage() {
             const addr = data.address;
             setStreetAddress(addr.road || addr.suburb || addr.neighbourhood || '');
             setLocality(addr.suburb || addr.neighbourhood || addr.residential || '');
-            setCity(addr.city || addr.town || addr.municipality || addr.county || 'Noida');
-            setState(addr.state || 'Uttar Pradesh');
+            const rawCity = addr.city || addr.town || addr.municipality || addr.county || '';
+            const rawState = addr.state || addr.state_district || '';
+            setCity(isValidText(rawCity) ? rawCity : '');
+            setState(isValidText(rawState) ? rawState : '');
             setPincode(addr.postcode || '');
           } else {
-            setCity('Noida');
-            setState('Uttar Pradesh');
+            setCity('');
+            setState('');
           }
           showToast('Location detected successfully', 'success');
         } catch (_) {
-          setCity('Noida');
-          setState('Uttar Pradesh');
+          setCity('');
+          setState('');
         } finally {
           setIsLoadingGeo(false);
           setIsAddressModalOpen(false);
@@ -78,8 +87,8 @@ export default function BecomeAHostAddressPage() {
       },
       () => {
         setIsLoadingGeo(false);
-        setCity('Noida');
-        setState('Uttar Pradesh');
+        setCity('');
+        setState('');
         setIsAddressModalOpen(false);
         setIsConfirmModalOpen(true);
       },
@@ -99,26 +108,37 @@ export default function BecomeAHostAddressPage() {
     setIsLoadingGeo(true);
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}`
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&q=${encodeURIComponent(query)}`
       );
       const results = await res.json();
       if (results && results.length > 0) {
         const topResult = results[0];
-        const displayParts = (topResult.display_name || '').split(', ');
+        const addr = topResult.address || {};
+        const displayParts = (topResult.display_name || '').split(', ').map((s: string) => s.trim());
+        const textParts = displayParts.filter((p: string) => isValidText(p) && p.toLowerCase() !== 'india');
+
+        const rawCity = addr.city || addr.town || addr.municipality || addr.city_district || addr.county || textParts[0] || '';
+        const rawState = addr.state || addr.state_district || textParts[textParts.length - 1] || '';
+        const rawPostcode = addr.postcode || '';
+
         setStreetAddress(query);
-        setLocality(displayParts[1] || displayParts[0] || query);
-        setCity(displayParts[2] || displayParts[1] || 'Noida');
-        setState(displayParts[displayParts.length - 2] || 'Uttar Pradesh');
+        setLocality(addr.suburb || addr.neighbourhood || addr.residential || '');
+        setCity(isValidText(rawCity) ? rawCity : '');
+        setState(isValidText(rawState) ? rawState : '');
+        setPincode(rawPostcode);
       } else {
         setStreetAddress(query);
-        setLocality(query);
-        setCity('Noida');
-        setState('Uttar Pradesh');
+        setLocality('');
+        setCity('');
+        setState('');
+        setPincode('');
       }
     } catch (_) {
       setStreetAddress(query);
-      setCity('Noida');
-      setState('Uttar Pradesh');
+      setLocality('');
+      setCity('');
+      setState('');
+      setPincode('');
     } finally {
       setIsLoadingGeo(false);
       setIsAddressModalOpen(false);
@@ -386,9 +406,17 @@ export default function BecomeAHostAddressPage() {
 
               <button
                 type="submit"
-                className="w-full py-4 bg-[#222222] dark:bg-white text-white dark:text-black font-bold text-base rounded-xl hover:bg-black dark:hover:bg-gray-200 transition-all shadow-md active:scale-[0.98] cursor-pointer mt-6"
+                disabled={isSaving}
+                className="w-full py-4 bg-[#222222] dark:bg-white text-white dark:text-black font-bold text-base rounded-xl hover:bg-black dark:hover:bg-gray-200 transition-all shadow-md active:scale-[0.98] cursor-pointer mt-6 flex items-center justify-center gap-2 disabled:opacity-70"
               >
-                Next
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Saving address...</span>
+                  </>
+                ) : (
+                  <span>Next</span>
+                )}
               </button>
             </form>
           </div>
