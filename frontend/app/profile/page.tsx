@@ -12,7 +12,7 @@ import { Luggage, Users, MessageSquare, Star, ChevronDown, ChevronUp, MapPin, Ca
 export default function ProfilePage() {
   const { currentUser } = useAuth();
   const { formatPrice } = useLocale();
-  const [activeTab, setActiveTab] = useState<'about' | 'past_trips' | 'connections'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'upcoming_trips' | 'past_trips' | 'connections'>('about');
   const [showReviewsWritten, setShowReviewsWritten] = useState<boolean>(false);
 
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -39,6 +39,10 @@ export default function ProfilePage() {
   }, [currentUser]);
 
   const userInitial = currentUser?.name?.[0]?.toUpperCase() || 'U';
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const upcomingTrips = bookings.filter((trip) => trip.check_out >= todayStr && trip.status !== 'CANCELLED');
+  const pastTrips = bookings.filter((trip) => trip.check_out < todayStr && trip.status !== 'CANCELLED');
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#121212] text-airbnb-black dark:text-gray-100 flex flex-col transition-colors duration-200">
@@ -70,22 +74,51 @@ export default function ProfilePage() {
                 <span>About me</span>
               </button>
 
-              {/* 2. Past trips Tab */}
+              {/* 2. Upcoming trips Tab */}
+              <button
+                onClick={() => setActiveTab('upcoming_trips')}
+                className={`flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm transition-all cursor-pointer text-left ${
+                  activeTab === 'upcoming_trips'
+                    ? 'bg-[#F2F2F2] dark:bg-[#262626] font-bold text-airbnb-black dark:text-white shadow-xs'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-airbnb-grey dark:text-gray-400 font-medium'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center text-sm flex-shrink-0 font-bold">
+                    ✈️
+                  </div>
+                  <span>Upcoming trips</span>
+                </div>
+                {upcomingTrips.length > 0 && (
+                  <span className="text-xs bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full">
+                    {upcomingTrips.length}
+                  </span>
+                )}
+              </button>
+
+              {/* 3. Past trips Tab */}
               <button
                 onClick={() => setActiveTab('past_trips')}
-                className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm transition-all cursor-pointer text-left ${
+                className={`flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm transition-all cursor-pointer text-left ${
                   activeTab === 'past_trips'
                     ? 'bg-[#F2F2F2] dark:bg-[#262626] font-bold text-airbnb-black dark:text-white shadow-xs'
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-airbnb-grey dark:text-gray-400 font-medium'
                 }`}
               >
-                <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center text-base flex-shrink-0">
-                  🧳
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center text-base flex-shrink-0">
+                    🧳
+                  </div>
+                  <span>Past trips</span>
                 </div>
-                <span>Past trips</span>
+                {pastTrips.length > 0 && (
+                  <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full">
+                    {pastTrips.length}
+                  </span>
+                )}
               </button>
 
-              {/* 3. Connections Tab */}
+              {/* 4. Connections Tab */}
               <button
                 onClick={() => setActiveTab('connections')}
                 className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm transition-all cursor-pointer text-left ${
@@ -149,7 +182,80 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* TAB 2: PAST TRIPS */}
+            {/* TAB 2: UPCOMING TRIPS */}
+            {activeTab === 'upcoming_trips' && (
+              <div className="flex flex-col gap-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="text-3xl font-extrabold text-airbnb-black dark:text-white">Upcoming trips</h2>
+                  <Link href="/trips" className="text-xs font-bold text-airbnb-red hover:underline flex items-center gap-1">
+                    Manage all trips →
+                  </Link>
+                </div>
+
+                {isLoadingBookings ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-pulse">
+                    <div className="h-56 bg-gray-100 dark:bg-gray-800 rounded-3xl" />
+                    <div className="h-56 bg-gray-100 dark:bg-gray-800 rounded-3xl" />
+                  </div>
+                ) : upcomingTrips.length === 0 ? (
+                  <div className="p-8 border border-airbnb-border dark:border-gray-800 rounded-3xl bg-gray-50 dark:bg-[#1A1A1A] text-center flex flex-col items-center gap-3">
+                    <div className="text-4xl">✈️</div>
+                    <div className="font-bold text-base text-airbnb-black dark:text-white">No upcoming trips</div>
+                    <p className="text-xs text-airbnb-grey dark:text-gray-400 max-w-sm">
+                      Time to dust off your bags and start planning your next adventure!
+                    </p>
+                    <Link
+                      href="/"
+                      className="mt-2 px-5 py-2.5 bg-airbnb-red text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-colors"
+                    >
+                      Search places to stay
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {upcomingTrips.map((trip) => (
+                      <Link
+                        key={trip.id}
+                        href={trip.listing_id ? `/listings/${trip.listing_id}` : '/trips'}
+                        className="group border border-airbnb-border dark:border-gray-800 rounded-3xl overflow-hidden bg-white dark:bg-[#1A1A1A] shadow-xs hover:shadow-md transition-all flex flex-col"
+                      >
+                        <div className="h-40 w-full relative overflow-hidden">
+                          <img
+                            src={trip.listing?.cover_image || 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800'}
+                            alt={trip.listing?.title || 'Trip'}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute top-3 right-3 bg-emerald-600/95 backdrop-blur-md text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-xs tracking-wide">
+                            Confirmed · Upcoming
+                          </div>
+                        </div>
+                        <div className="p-5 flex flex-col gap-2 flex-1 justify-between">
+                          <div>
+                            <div className="font-bold text-sm text-airbnb-black dark:text-white line-clamp-1 group-hover:text-airbnb-red transition-colors">
+                              {trip.listing?.title || 'Reservation'}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-airbnb-grey dark:text-gray-400 mt-1">
+                              <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                              <span>{trip.listing?.location || 'India'}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-airbnb-grey dark:text-gray-400 mt-1">
+                              <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                              <span>{trip.check_in} → {trip.check_out}</span>
+                            </div>
+                          </div>
+                          <div className="font-extrabold text-xs text-airbnb-black dark:text-white pt-3 border-t border-gray-100 dark:border-gray-800 mt-2 flex justify-between items-center">
+                            <span>Total Paid</span>
+                            <span className="text-sm">{formatPrice(trip.total_price)}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: PAST TRIPS */}
             {activeTab === 'past_trips' && (
               <div className="flex flex-col gap-6">
                 <h2 className="text-3xl font-extrabold text-airbnb-black dark:text-white mb-2">Past trips</h2>
@@ -159,12 +265,12 @@ export default function ProfilePage() {
                     <div className="h-56 bg-gray-100 dark:bg-gray-800 rounded-3xl" />
                     <div className="h-56 bg-gray-100 dark:bg-gray-800 rounded-3xl" />
                   </div>
-                ) : bookings.length === 0 ? (
+                ) : pastTrips.length === 0 ? (
                   <div className="p-8 border border-airbnb-border dark:border-gray-800 rounded-3xl bg-gray-50 dark:bg-[#1A1A1A] text-center flex flex-col items-center gap-3">
                     <div className="text-4xl">🧳</div>
                     <div className="font-bold text-base text-airbnb-black dark:text-white">No past trips yet</div>
                     <p className="text-xs text-airbnb-grey dark:text-gray-400 max-w-sm">
-                      When you make reservations and complete stays, your trip history will appear here under your account.
+                      Once your upcoming reservations pass their checkout dates, completed stays will appear here in your travel log.
                     </p>
                     <Link
                       href="/"
@@ -175,43 +281,49 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {bookings.map((trip) => (
-                      <div
+                    {pastTrips.map((trip) => (
+                      <Link
                         key={trip.id}
-                        className="border border-airbnb-border dark:border-gray-800 rounded-3xl overflow-hidden bg-white dark:bg-[#1A1A1A] shadow-xs hover:shadow-md transition-shadow"
+                        href={trip.listing_id ? `/listings/${trip.listing_id}` : '/trips'}
+                        className="group border border-airbnb-border dark:border-gray-800 rounded-3xl overflow-hidden bg-white dark:bg-[#1A1A1A] shadow-xs hover:shadow-md transition-all flex flex-col"
                       >
-                        <div className="h-40 w-full relative">
+                        <div className="h-40 w-full relative overflow-hidden">
                           <img
                             src={trip.listing?.cover_image || 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800'}
                             alt={trip.listing?.title || 'Trip'}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 filter grayscale-[20%]"
                           />
+                          <div className="absolute top-3 right-3 bg-gray-800/90 backdrop-blur-md text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-xs tracking-wide">
+                            Completed Stay
+                          </div>
                         </div>
-                        <div className="p-5 flex flex-col gap-2">
-                          <div className="font-bold text-sm text-airbnb-black dark:text-white line-clamp-1">
-                            {trip.listing?.title || 'Reservation'}
+                        <div className="p-5 flex flex-col gap-2 flex-1 justify-between">
+                          <div>
+                            <div className="font-bold text-sm text-airbnb-black dark:text-white line-clamp-1 group-hover:text-airbnb-red transition-colors">
+                              {trip.listing?.title || 'Reservation'}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-airbnb-grey dark:text-gray-400 mt-1">
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span>{trip.listing?.location || 'India'}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-airbnb-grey dark:text-gray-400 mt-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              <span>{trip.check_in} → {trip.check_out}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 text-xs text-airbnb-grey dark:text-gray-400">
-                            <MapPin className="w-3.5 h-3.5" />
-                            <span>{trip.listing?.location || 'India'}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-airbnb-grey dark:text-gray-400 mt-1">
-                            <Calendar className="w-3.5 h-3.5" />
-                            <span>{trip.check_in} → {trip.check_out}</span>
-                          </div>
-                          <div className="font-extrabold text-xs text-airbnb-black dark:text-white pt-2 border-t border-gray-100 dark:border-gray-800 mt-2 flex justify-between">
+                          <div className="font-extrabold text-xs text-airbnb-black dark:text-white pt-3 border-t border-gray-100 dark:border-gray-800 mt-2 flex justify-between items-center">
                             <span>Total Paid</span>
-                            <span>{formatPrice(trip.total_price)}</span>
+                            <span className="text-sm">{formatPrice(trip.total_price)}</span>
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* TAB 3: CONNECTIONS */}
+            {/* TAB 4: CONNECTIONS */}
             {activeTab === 'connections' && (
               <div className="flex flex-col gap-6">
                 <h2 className="text-3xl font-extrabold text-airbnb-black dark:text-white mb-2">Connections</h2>
